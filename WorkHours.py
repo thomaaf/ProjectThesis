@@ -28,7 +28,7 @@ if (int(checkout) == 0) and (1):
 
 	f = open('Hours.txt',"w")
 	f.writelines(lines)	
-	print("Checked OUT: Time registered: "+ str(dt))
+	print("Checked OUT: Time registered: "+ str(int(dt/3600)) + " : " + str(int(dt/60) - int(dt/3600)*60 )) 
 else:
 	string = "month,"+date.split('-')[1]+",day,"+date.split('-')[2]
 	string = string + ",timestampIn," + str(timestamp) + ",timestampOut," + str(0) 

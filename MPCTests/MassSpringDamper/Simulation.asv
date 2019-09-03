@@ -112,15 +112,16 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
        uopt((i-1)*mpciter +1:i*mpciter ,:) = reshape(uopttmp(i:nu:mpciter*nu,:),size(uopttmp(i:nu:mpciter*nu,:),1),N);
     end    
     t = 0:h:tspan;
-
+    x = x(1:mpciter-1,:);
+    u = u(1:mpcit
     
 end
 
 function x = RK4(x,u,dt,t)
-    k1 = dt*Plant(x(t,:)',u);
-    k2 = dt*Plant(x(t,:)' + k1/2,u);
-    k3 = dt*Plant(x(t,:)' + k2/2,u);
-    k4 = dt*Plant(x(t,:)' + k3,u);
+    k1 = dt*PlantMDS(x(t,:)',u);
+    k2 = dt*PlantMDS(x(t,:)' + k1/2,u);
+    k3 = dt*PlantMDS(x(t,:)' + k2/2,u);
+    k4 = dt*PlantMDS(x(t,:)' + k3,u);
     x(t+1,:) = x(t,:) + 1/6*(k1 + 2*k2 + 2*k3 + k4)';
 end
     

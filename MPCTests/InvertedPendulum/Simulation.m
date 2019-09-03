@@ -1,43 +1,30 @@
-%function  Simulation(A,B,P,N,dt,n,tspan,h,x0)
+function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,dt,nx,nu)
 %% Multiple shooting, Linear model
-% nx = n states, nu = n inputs, N = Prediciton horizon, dt = predict res
-% A,B = System matricies; Q,R = Cost matrices, x0 = System initial cond
-% xGuess = initial guess
-nx = 4; nu = 1;
-N = 30; dt = 0.1; 
-A = [0,1,0,0;0,0,4.905,0;0,0,0,1;0,0,14.715,0];
-B = [0;0.5;0;0.5];    
-Q = diag([50,1,1,1]);
-x0 = [1;0;0.7;0];
-xRef= [0;0;0;0];
-Xlb = []; Xub = [];
-Ulb = []; Uub = [];
-
-%[x,u,t,uopt,xopt] =
 %% Initialization
 %-----------Define the states and inputs---------
     %X = State variables, U = control inputs, xnext = Euler progression
     %Obj = Cost function %g2 = Equality constraints (System dynamics);
     %g1 = Inequality constraints (inputs/state limits) 
-    X  = casadi.SX.sym('x',nx,N+1);
-    U  = casadi.SX.sym('u',nu,N);
-    X0 = casadi.SX(n,1);
-    XRef = casadi.SX(n,1);
-    P = [X0;XRef];
-    xnext = casadi.SX(4,N);
+    X  = casadi.SX.sym('X',nx,N+1);
+    U  = casadi.SX.sym('U',nu,N);
+
+    P = casadi.SX.sym('P',nx*2);
+   % xnext = casadi.SX(nx,N);
     stageCost = casadi.SX(N,1);
     obj = 0;
     g1 = 0;
-    g2 = casadi.SX(n*N+n,1);
+    g2 = casadi.SX(nx*N+nx,1);
     
 %----------Setup of NLP--------------    
     %Constraints: 
-    g2(1:4) = X(:,1) - X0;
+    
+    g2(1:nx) = X(:,1) - P(1:nx);
     for i = 1:N
-       xnext =X(:,i) + dt*(A*X(:,i) + B*U(:,i));
-       stageCost(i) = (X(:,i)-XRef)'*Q*(X(:,i)-XRef) + U(:,i)'*R*(U(:,i));
+
+       xnext = X(:,i) + dt*(A*X(:,i) + B*U(:,i));
+       stageCost(i) = (X(:,i)-P(nx+1:end))'*Q*(X(:,i)-P(nx+1:end)) + U(:,i)'*R*(U(:,i));
        obj = obj + stageCost(i);
-       g2(i*n+1:(i+1)*n) = X(:,i+1) - xnext;
+       g2(i*nx+1:(i+1)*nx) = X(:,i+1) - xnext;
     end
     %Optimization variables
     OPTVariables = [reshape(X,nx*(N+1),1); reshape(U,nu*N,1)];
@@ -86,13 +73,13 @@ Ulb = []; Uub = [];
     t = [0;tspan];
     x = zeros(tspan/h,size(x0,1));
     u = zeros(tspan/h,1);
-    uopt = zeros(tspan/h,N);
-    xopt = zeros(tspan/h,N+1);
+    uopttmp = zeros(tspan/h*nu,N);
+    xopttmp = zeros(tspan/h*nx,N+1);
     x(1,:) = x0;
-	mpciter = 0; 
+	mpciter = 1; 
     
     X0 = repmat(x0,1,N+1); U0 = zeros(N,nu); % Search initial conditions
-    while(norm((x0-xRef),2)> 1e-2 &&mpciter<tspan/dt)
+    while(norm((x0-xRef),2)> 1e-2 && mpciter<tspan/h)
         args.p = [x0;xRef]; % Set the current values of reference and x0
         args.x0 = [reshape(X0',nx*(N+1),1); reshape(U0',nu*N,1)];
  
@@ -102,15 +89,32 @@ Ulb = []; Uub = [];
         %Extract inputs and path. Disp in proper form
         u  = reshape(full(sol.x(nx*(N+1)+1:end))',nu,N); 
         xx = reshape(full(sol.x(1:nx*(N+1)) ),nx,N+1);
-        
+        xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
+        uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = u;
         %Apply the input
-        RK4(
+        x = RK4(x,u(:,1),h,mpciter);
         
-        
-        
+        % Declare new inital conditions
+        mpciter = mpciter + 1;
+        x0 = x(mpciter,:)';
+        X0 = [xx(2:end,:);xx(end,:)];
+        norm((x0-xRef),2);
         
         
     end
+    mpciter = mpciter - 1;
+    xopt = zeros(mpciter*nx,N+1);
+    uopt = zeros(mpciter*nu,N);
+    for i = 1:nx
+       xopt((i-1)*mpciter +1:i*mpciter ,:) = reshape(xopttmp(i:nx:mpciter*nx,:),size(xopttmp(i:nx:mpciter*nx,:),1),N+1);
+    end
+    for i = 1:nu
+       uopt((i-1)*mpciter +1:i*mpciter ,:) = reshape(uopttmp(i:nu:mpciter*nu,:),size(uopttmp(i:nu:mpciter*nu,:),1),N);
+    end    
+    t = 0:h:tspan;
+
+    
+end
 
 function x = RK4(x,u,dt,t)
     k1 = dt*Plant(x(t,:)',u);

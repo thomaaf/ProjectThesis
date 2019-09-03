@@ -1,4 +1,4 @@
-function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,dt,nx,nu)
+function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,T,nx,nu)
 %% Multiple shooting, Linear model
 %% Initialization
 %-----------Define the states and inputs---------
@@ -21,7 +21,7 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
     g2(1:nx) = X(:,1) - P(1:nx);
     for i = 1:N
 
-       xnext = X(:,i) + dt*(A*X(:,i) + B*U(:,i));
+       xnext = X(:,i) + T/N*(A*X(:,i) + B*U(:,i));
        stageCost(i) = (X(:,i)-P(nx+1:end))'*Q*(X(:,i)-P(nx+1:end)) + U(:,i)'*R*(U(:,i));
        obj = obj + stageCost(i);
        g2(i*nx+1:(i+1)*nx) = X(:,i+1) - xnext;
@@ -79,7 +79,7 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
 	mpciter = 1; 
     
     X0 = repmat(x0,1,N+1); U0 = zeros(N,nu); % Search initial conditions
-    while(norm((x0-xRef),2)> 1e-2 && mpciter<tspan/h)
+    while(norm((x0-xRef),2)> 1e-3 && mpciter<tspan/h)
         args.p = [x0;xRef]; % Set the current values of reference and x0
         args.x0 = [reshape(X0',nx*(N+1),1); reshape(U0',nu*N,1)];
  
@@ -87,13 +87,13 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
         args.lbg,'ubg',args.ubg,'p',args.p);
         
         %Extract inputs and path. Disp in proper form
-        u  = reshape(full(sol.x(nx*(N+1)+1:end))',nu,N); 
+        uu  = reshape(full(sol.x(nx*(N+1)+1:end))',nu,N); 
         xx = reshape(full(sol.x(1:nx*(N+1)) ),nx,N+1);
         xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
-        uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = u;
+        uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = uu;
         %Apply the input
-        x = RK4(x,u(:,1),h,mpciter);
-        
+        x = RK4(x,uu(:,1),h,mpciter);
+        u(mpciter) = uu(:,1);
         % Declare new inital conditions
         mpciter = mpciter + 1;
         x0 = x(mpciter,:)';
@@ -112,15 +112,16 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
        uopt((i-1)*mpciter +1:i*mpciter ,:) = reshape(uopttmp(i:nu:mpciter*nu,:),size(uopttmp(i:nu:mpciter*nu,:),1),N);
     end    
     t = 0:h:tspan;
-
+    x = x(1:mpciter-1,:);
+    u = u(1:mpciter-1,:);
     
 end
 
 function x = RK4(x,u,dt,t)
-    k1 = dt*Plant(x(t,:)',u);
-    k2 = dt*Plant(x(t,:)' + k1/2,u);
-    k3 = dt*Plant(x(t,:)' + k2/2,u);
-    k4 = dt*Plant(x(t,:)' + k3,u);
+    k1 = dt*PlantMDS(x(t,:)',u);
+    k2 = dt*PlantMDS(x(t,:)' + k1/2,u);
+    k3 = dt*PlantMDS(x(t,:)' + k2/2,u);
+    k4 = dt*PlantMDS(x(t,:)' + k3,u);
     x(t+1,:) = x(t,:) + 1/6*(k1 + 2*k2 + 2*k3 + k4)';
 end
     

@@ -1,1 +1,2 @@
-month,09,day,02,timestampIn,1567442025,timestampOut,0,time,0
+month,09,day,02,timestampIn,1567442025,timestampOut,1567445023,time,2998
+month,09,day,03,timestampIn,1567509100,timestampOut,1567524654,time,15554
