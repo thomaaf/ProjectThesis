@@ -1,4 +1,4 @@
-function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,dt,nx,nu)
+function [x,u,xopt,uopt,t,f]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,T,nx,nu)
 %% Multiple shooting, Linear model
 %% Initialization
 %-----------Define the states and inputs---------
@@ -21,7 +21,7 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
     g2(1:nx) = X(:,1) - P(1:nx);
     for i = 1:N
 
-       xnext = X(:,i) + dt*(A*X(:,i) + B*U(:,i));
+       xnext = X(:,i) + T/N*(A*X(:,i) + B*U(:,i));
        stageCost(i) = (X(:,i)-P(nx+1:end))'*Q*(X(:,i)-P(nx+1:end)) + U(:,i)'*R*(U(:,i));
        obj = obj + stageCost(i);
        g2(i*nx+1:(i+1)*nx) = X(:,i+1) - xnext;
@@ -70,36 +70,47 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
     
 %% Simulation loop
 %------Output Variables-----
-    t = [0;tspan];
     x = zeros(tspan/h,size(x0,1));
     u = zeros(tspan/h,1);
     uopttmp = zeros(tspan/h*nu,N);
     xopttmp = zeros(tspan/h*nx,N+1);
     x(1,:) = x0;
 	mpciter = 1; 
-    
+    f = zeros(tspan/h);
     X0 = repmat(x0,1,N+1); U0 = zeros(N,nu); % Search initial conditions
-    while(norm((x0-xRef),2)> 1e-2 && mpciter<tspan/h)
-        args.p = [x0;xRef]; % Set the current values of reference and x0
-        args.x0 = [reshape(X0',nx*(N+1),1); reshape(U0',nu*N,1)];
- 
-        sol = solver('x0',args.x0, 'lbx',args.lbx,'ubx',args.ubx,'lbg',...
-        args.lbg,'ubg',args.ubg,'p',args.p);
+    uu = zeros(nu,N); xx = zeros(nx,N);
+    while(norm((x0-xRef),2)> 1e-3 && mpciter<tspan/h)
+        t = h*(mpciter-1);
+
+        if mod(t,T/N) == 0
+            args.p = [x0;xRef]; % Set the current values of reference and x0
+            args.x0 = [reshape(X0',nx*(N+1),1); reshape(U0',nu*N,1)];
+            sol = solver('x0',args.x0, 'lbx',args.lbx,'ubx',args.ubx,'lbg',...
+            args.lbg,'ubg',args.ubg,'p',args.p);
         
-        %Extract inputs and path. Disp in proper form
-        u  = reshape(full(sol.x(nx*(N+1)+1:end))',nu,N); 
-        xx = reshape(full(sol.x(1:nx*(N+1)) ),nx,N+1);
-        xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
-        uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = u;
+            %Extract inputs and path. Disp in proper form
+            uu  = reshape(full(sol.x(nx*(N+1)+1:end))',nu,N); 
+            xx  = reshape(full(sol.x(1:nx*(N+1)) ),nx,N+1);     
+            f(mpciter) = full(sol.f);
+            sol.g
+            
+            soxopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
+            uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = uu;
+        else 
+            xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = nan;
+            uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = nan;            
+            f(mpciter) = nan;
+        end
+
         %Apply the input
-        x = RK4(x,u(:,1),h,mpciter);
-        
+        x = RK4(x,uu(:,1),h,mpciter);
+        u(mpciter) = uu(:,1);
         % Declare new inital conditions
         mpciter = mpciter + 1;
         x0 = x(mpciter,:)';
         X0 = [xx(2:end,:);xx(end,:)];
-        norm((x0-xRef),2);
-        
+        %X0 = xx
+
         
     end
     mpciter = mpciter - 1;
@@ -111,17 +122,17 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
     for i = 1:nu
        uopt((i-1)*mpciter +1:i*mpciter ,:) = reshape(uopttmp(i:nu:mpciter*nu,:),size(uopttmp(i:nu:mpciter*nu,:),1),N);
     end    
-    t = 0:h:tspan;
-    x = x(1:mpciter-1,:);
-    u = u(1:mpcit
-    
+    t = (0:h:(mpciter)*h + T)';
+    x = x(1:mpciter+1,:);
+    u = u(1:mpciter+1,:);
+    f = f(1:N/T:mpciter+1);
 end
 
 function x = RK4(x,u,dt,t)
-    k1 = dt*PlantMDS(x(t,:)',u);
-    k2 = dt*PlantMDS(x(t,:)' + k1/2,u);
-    k3 = dt*PlantMDS(x(t,:)' + k2/2,u);
-    k4 = dt*PlantMDS(x(t,:)' + k3,u);
+    k1 = dt*PlantFirstOrder(x(t,:)',u);
+    k2 = dt*PlantFirstOrder(x(t,:)' + k1/2,u);
+    k3 = dt*PlantFirstOrder(x(t,:)' + k2/2,u);
+    k4 = dt*PlantFirstOrder(x(t,:)' + k3,u);
     x(t+1,:) = x(t,:) + 1/6*(k1 + 2*k2 + 2*k3 + k4)';
 end
     

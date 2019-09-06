@@ -1,4 +1,4 @@
-function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,T,nx,nu)
+function [x,u,xopt,uopt,t,f]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,T,nx,nu)
 %% Multiple shooting, Linear model
 %% Initialization
 %-----------Define the states and inputs---------
@@ -70,18 +70,18 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
     
 %% Simulation loop
 %------Output Variables-----
-    t = [0;tspan];
     x = zeros(tspan/h,size(x0,1));
     u = zeros(tspan/h,1);
     uopttmp = zeros(tspan/h*nu,N);
     xopttmp = zeros(tspan/h*nx,N+1);
     x(1,:) = x0;
 	mpciter = 1; 
-    test = 0;
+    f = zeros(tspan/h);
     X0 = repmat(x0,1,N+1); U0 = zeros(N,nu); % Search initial conditions
     uu = zeros(nu,N); xx = zeros(nx,N);
     while(norm((x0-xRef),2)> 1e-3 && mpciter<tspan/h)
         t = h*(mpciter-1);
+
         if mod(t,T/N) == 0
             args.p = [x0;xRef]; % Set the current values of reference and x0
             args.x0 = [reshape(X0',nx*(N+1),1); reshape(U0',nu*N,1)];
@@ -91,12 +91,15 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
             %Extract inputs and path. Disp in proper form
             uu  = reshape(full(sol.x(nx*(N+1)+1:end))',nu,N); 
             xx  = reshape(full(sol.x(1:nx*(N+1)) ),nx,N+1);     
+            f(mpciter) = full(sol.f);
+            sol.lam_x
             
             xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
             uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = uu;
         else 
             xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = nan;
             uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = nan;            
+            f(mpciter) = nan;
         end
 
         %Apply the input
@@ -122,14 +125,14 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
     t = (0:h:(mpciter)*h + T)';
     x = x(1:mpciter+1,:);
     u = u(1:mpciter+1,:);
-    
+    f = f(1:N/T:mpciter+1);
 end
 
 function x = RK4(x,u,dt,t)
-    k1 = dt*PlantMDS(x(t,:)',u);
-    k2 = dt*PlantMDS(x(t,:)' + k1/2,u);
-    k3 = dt*PlantMDS(x(t,:)' + k2/2,u);
-    k4 = dt*PlantMDS(x(t,:)' + k3,u);
+    k1 = dt*PlantFirstOrder(x(t,:)',u);
+    k2 = dt*PlantFirstOrder(x(t,:)' + k1/2,u);
+    k3 = dt*PlantFirstOrder(x(t,:)' + k2/2,u);
+    k4 = dt*PlantFirstOrder(x(t,:)' + k3,u);
     x(t+1,:) = x(t,:) + 1/6*(k1 + 2*k2 + 2*k3 + k4)';
 end
     
