@@ -1,5 +1,6 @@
 import datetime
 import sys
+import subprocess
 now = datetime.datetime.now()
 timestamp = int(datetime.datetime.timestamp(now)) 
 date = str(datetime.datetime.date(now))
@@ -29,6 +30,13 @@ if (int(checkout) == 0) and (1):
 	f = open('Hours.txt',"w")
 	f.writelines(lines)	
 	print("Checked OUT: Time registered: "+ str(int(dt/3600)) + " : " + str(int(dt/60) - int(dt/3600)*60 )) 
+	date = str(datetime.datetime.fromtimestamp(int(lastLine[5])).day)+'.'+str(datetime.datetime.fromtimestamp(int(lastLine[5])).month)
+
+	subprocess#.call('git status', shell=True)
+	subprocess.call('git add .', shell=False)
+	subprocess.call('git commit -m '+"\""+date+"\"", shell=True)
+	subprocess.call('git push origin master', shell=True)
+
 else:
 	string = "month,"+date.split('-')[1]+",day,"+date.split('-')[2]
 	string = string + ",timestampIn," + str(timestamp) + ",timestampOut," + str(0) 

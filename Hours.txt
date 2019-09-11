@@ -1,5 +1,0 @@
-month,09,day,02,timestampIn,1567442025,timestampOut,1567445023,time,2998
-month,09,day,03,timestampIn,1567509100,timestampOut,1567524654,time,15554
-month,09,day,06,timestampIn,1567764160,timestampOut,1567785819,time,21659
-month,09,day,09,timestampIn,1568016133,timestampOut,1568043678,time,27545
-month,09,day,11,timestampIn,1568192499,timestampOut,0,time,0

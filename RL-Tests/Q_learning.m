@@ -59,12 +59,13 @@ while attempts <maxAttempts
     end
     
 end
-aset
+
 figure(1)
 subplot(2,1,1);
 plot(attemptData.stageCost);
 subplot(2,1,2)
 plot(attemptData.stageCostFiltered)
+
 function action = optPolicy(Q,s)
     best = -inf;
     for i= 1:4
@@ -75,22 +76,10 @@ function action = optPolicy(Q,s)
     end
 end
 
-
 function Q = BellmanUpdate(Q,action,s,snext,Grid,rate)
-    %Q = grid(n,m) with each grid having 4 actions
-    %Action = 1:4
-    %S = [X;Y], snext = [X;Y]
-    %rate = 1;
     gamma = 0.9;
-%     disp("Current position")
-%     disp([s(2),s(1)])
-%     disp("Current state")
-%     disp(Q(s(2),s(1)).a)
-%     disp("next state")
-%     disp(Q(snext(2),snext(1)).a)
-%     disp("Discount")
-%     gamma*max(Q(snext(2),snext(1)).a)
-    Q(s(2),s(1)).a(action) = Q(s(2),s(1)).a(action)+ rate*(Grid(snext(2),snext(1)) + gamma*max(Q(snext(2),snext(1)).a) - Q(s(2),s(1)).a(action));
+    Q(s(2),s(1)).a(action) = Q(s(2),s(1)).a(action)+ rate*(Grid(snext(2),snext(1))...
+        + gamma*max(Q(snext(2),snext(1)).a) - Q(s(2),s(1)).a(action));
 
 
 end
@@ -134,7 +123,6 @@ function [piece,action] = move(piece, action,m,n)
 
 
 end
-
 
 function [piece,action] = ranmove(piece, action,m,n)
     if action <= 0.25                  %north
