@@ -33,13 +33,14 @@ if (int(checkout) == 0) and (1):
 	f.close()
 	date = str(datetime.datetime.fromtimestamp(int(lastLine[5])).day)+'.'+str(datetime.datetime.fromtimestamp(int(lastLine[5])).month)
 
-	print("commiting to git with message" + "\""+date+"\"")
+	print("Commiting to git with message: " + "\""+date+"\"")
+	print("\n===========GIT COMMANDS============")
 	subprocess.call('git add .', shell=False)
 	subprocess.call('git commit -m '+"\""+date+"\"", shell=True)
 	subprocess.call('git push origin master', shell=True)
 	subprocess.call('git status', shell=True)
-
-
+	print("=============GIT FINISHED============")
+	print("Checkout complete")
 else:
 	string = "month,"+date.split('-')[1]+",day,"+date.split('-')[2]
 	string = string + ",timestampIn," + str(timestamp) + ",timestampOut," + str(0) 
