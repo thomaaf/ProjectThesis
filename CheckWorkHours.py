@@ -28,8 +28,3 @@ string = string + "\n"
 lines[-1] = string
 print("Current time registered: "+ str(int(dt/3600)) + " : " + str(int(dt/60) - int(dt/3600)*60 )) 
 print("Checkin time was       : " + str(datetime.datetime.fromtimestamp(int(lastLine[5])).time()))
-print(str(datetime.datetime.fromtimestamp(int(lastLine[5])).day))
-date = str(datetime.datetime.fromtimestamp(int(lastLine[5])).day)+'.'+str(datetime.datetime.fromtimestamp(int(lastLine[5])).month)
-print(date)
-print("\""+date+"\"")
-
