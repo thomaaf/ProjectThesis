@@ -28,3 +28,4 @@ string = string + "\n"
 lines[-1] = string
 print("Current time registered: "+ str(int(dt/3600)) + " : " + str(int(dt/60) - int(dt/3600)*60 )) 
 print("Checkin time was       : " + str(datetime.datetime.fromtimestamp(int(lastLine[5])).time()))
+print("\nRemember, the important thing is to Never Stop Trying.\n")

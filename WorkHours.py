@@ -41,6 +41,7 @@ if (int(checkout) == 0) and (1):
 	subprocess.call('git status', shell=True)
 	print("=============GIT FINISHED============\n")
 	print("Checkout complete")
+	print("\nRemember, the important thing is to Never Stop Trying.\n")
 else:
 	string = "month,"+date.split('-')[1]+",day,"+date.split('-')[2]
 	string = string + ",timestampIn," + str(timestamp) + ",timestampOut," + str(0) 
@@ -48,4 +49,5 @@ else:
 	f = open('Hours.txt',"a+")
 	f.write(string)	
 	print("Checked IN")
+	print("\nRemember, the important thing is to Never Stop Trying.\n")
 

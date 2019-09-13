@@ -4,3 +4,4 @@ month,09,day,06,timestampIn,1567764160,timestampOut,1567785819,time,21659
 month,09,day,09,timestampIn,1568016133,timestampOut,1568043678,time,27545
 month,09,day,11,timestampIn,1568192499,timestampOut,1568219681,time,27182
 month,09,day,12,timestampIn,1568268937,timestampOut,1568296526,time,27589
+month,09,day,13,timestampIn,1568375333,timestampOut,1568377579,time,2246
