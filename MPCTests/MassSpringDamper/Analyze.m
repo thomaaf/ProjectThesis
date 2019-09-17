@@ -48,7 +48,7 @@ function Analyze(x,u,t,Xmpc,Umpc)
 %        grid on
        
        %plot(x(i,5),0,'x')
-       pause(0.001)
+       pause(0.5)
 %         if (abs(x(i,1))<0.01) && (abs(x(i,2))<0.01)
 %             break;
 %         end

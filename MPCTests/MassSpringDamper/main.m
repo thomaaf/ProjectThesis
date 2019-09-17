@@ -8,17 +8,17 @@
 
 %%
 nx = 2; nu = 1;
-N = 10; T = 2; 
+N = 10; T = 1; 
 A = [0 1; -1 -1];
 B = [0;1];    
-Q = diag([1 0]);
+Q = diag([20 2]);
 R = 0;
-x0 = [1;0];
-tspan = 50;
+x0 = [1;0.5];
+tspan = 3;
 h = 0.01;
 xRef= [0;0];
-Xlb = [-1.5;-inf]; Xub = [];
-Ulb = [-10]; Uub = [10];
+Xlb = []; Xub = [];
+Ulb = []; Uub = [];
 [x,u,xopt,uopt,t] = Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,T,nx,nu);
 %%
 figure(1)
@@ -47,19 +47,20 @@ figure(1)
 clf(1)
 axis([0 max(t),-2 2])
 grid on
-opt = plot(0,0)
-inp = plot(0,0)
+opt = plot(0,0);
+inp = plot(0,0);
 for i = 1:size(x,1)
-    
+   title(u(i))
    plot(t(i),x(i,1),'b.'); hold on; grid on
    if ~isnan(xopt(i,:)) 
-        delete(opt);
+        
+       delete(opt);
         delete(inp);       
         opt = plot(t(i:T/N/h:i+T/h),xopt(i,:),'b-.');
         inp = plot(t(i:T/N/h:i+(T-T/N)/h),uopt(i,:),'r-.');
        
    end
-   pause(0.01)
+   pause(0.1)
    axis([0 max(t),-2 2])
 
 end

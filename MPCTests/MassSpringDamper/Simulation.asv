@@ -100,7 +100,7 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
             xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
             uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = uu;
             inputTime = inputTime + T/N;
-            [LSym,xSym,uSym,chiSym,cost] = Lagrangian(T,N,nx,nu,Q,R,A,B,xx,uu,sol,args);            
+            [LSym,xSym,uSym,chiSym,cost] = Lagrangian(T,N,nx,nu,Q,R,A,B,xx,uu,sol);            
         else 
             xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = nan;
             uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = nan;            
@@ -143,25 +143,28 @@ function x = RK4(x,u,dt,t)
 end
     
     
-function [L,x,u,chi,cost] = Lagrangian(T,N,nx,nu,Q,R,A,B,xx,uu,sol,args)
+function [L,x,u,chi,cost] = Lagrangian(T,N,nx,nu,Q,R,A,B,xx,uu,sol)
     syms x   [1 (N+1)*nx] real   %State variables
     syms u   [1 (N+1)*nu] real  %Input variables
     syms chi [1 (N+1)*nx] real   %Lagrange multipliers for function eq constraints
     x   = reshape(x,nx,N+1);
     u   = reshape(u,nu,N+1); %Extra padding u added for matrixinclusion
-    %chi = reshape(chi,nx,N+1);
-	vars = [x;reshape(chi,nx,N+1);u];
+    chi = reshape(chi,nx,N+1);
+	vars = [x;chi;u];
     nums = [xx;full(reshape(sol.lam_g,nx,N+1));uu,0]; %Last additional element of u set equal to 0
+    %Chi0'*(x0 - s)
+    X = chi(:,1)'*(x(:,1) - 0);
     cost = sym('0');
-    constraints = x(:,1) - args.p(1:2);
-    %constraints = [x(:,1) = ];
+    constraints = [];
     for k = 1:N
        cost = cost + 0.5*x(:,k+1)'*Q*x(:,k+1) + 0.5*u(:,k)'*R*u(:,k); 
-       constraints(k*nx+1:(k+1)*nx) = (eye(2) + T/N*A)*x(:,k) + T/N*B*u(:,k) - x(:,k+1);
+       (k-1)*nx+1:(k*nx)
+       constraint(nx+1:(k*nx)) = (eye(2) + T/N*A)*x(:,k) + T/N*B*u(:,k);
        %X = X + chi(:,k+1)'*(A*x(:,k) + B*u(:,k) - x(:,k+1)); 
        
     end
-    L  = chi*constraints + cost;
+    L  = chi'X' + cost;
+    
     fprintf("Sol.Cost = %6.2f \nCus.Cost = %6.2f\n",full(sol.f),eval(subs(cost,x,xx)))
     fprintf("Lagrangian: %s \n",L)
     fprintf("Evaluation of Lagrangian:\n \t %6.2f \n",eval(subs(L,vars,nums)))

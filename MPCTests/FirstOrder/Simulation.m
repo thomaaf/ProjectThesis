@@ -92,7 +92,7 @@ function [x,u,xopt,uopt,t,f]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan
             uu  = reshape(full(sol.x(nx*(N+1)+1:end))',nu,N); 
             xx  = reshape(full(sol.x(1:nx*(N+1)) ),nx,N+1);     
             f(mpciter) = full(sol.f);
-            sol.lam_x
+            %sol.lam_x
             
             xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
             uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = uu;
