@@ -24,9 +24,7 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
        xnext = X(:,i) + T/N*(A*X(:,i) + B*U(:,i));
        %stageCost(i) = 0.5*(X(:,i)-P(nx+1:end))'*Q*(X(:,i)-P(nx+1:end)) + 0.5*U(:,i)'*R*(U(:,i));
        stageCost(i) = 0.5*(X(:,i+1))'*Q*(X(:,i+1)) + 0.5*U(:,i)'*R*(U(:,i));
-       
        obj = obj + stageCost(i);
-       i*nx+1:(i+1)*nx
        g2(i*nx+1:(i+1)*nx) = X(:,i+1) - xnext;
     end
 
@@ -100,7 +98,7 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N
             xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
             uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = uu;
             inputTime = inputTime + T/N;
-            [LSym,xSym,uSym,chiSym,cost] = Lagrangian(T,N,nx,nu,Q,R,A,B,xx,uu,sol,args);            
+            [LSym,xSym,uSym,chiSym,cost] = Lagrangian(T,N,nx,nu,Q,R,A,B,xx,uu,sol,args,nlpProb);            
         else 
             xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = nan;
             uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = nan;            
@@ -143,45 +141,37 @@ function x = RK4(x,u,dt,t)
 end
     
     
-function [L,x,u,chi,cost] = Lagrangian(T,N,nx,nu,Q,R,A,B,xx,uu,sol,args)
-    syms x   [1 (N+1)*nx] real   %State variables
-    syms u   [1 (N+1)*nu] real  %Input variables
-    syms chi [1 (N+1)*nx] real   %Lagrange multipliers for function eq constraints
-    x   = reshape(x,nx,N+1);
-    u   = reshape(u,nu,N+1); %Extra padding u added for matrixinclusion
-    %chi = reshape(chi,nx,N+1);
-	vars = [x;reshape(chi,nx,N+1);u];
-    nums = [xx;full(reshape(sol.lam_g,nx,N+1));uu,0]; %Last additional element of u set equal to 0
-    cost = sym('0');
-    constraints = x(:,1) - args.p(1:2);
-    %constraints = [x(:,1) = ];
-    for k = 1:N
-       cost = cost + 0.5*x(:,k+1)'*Q*x(:,k+1) + 0.5*u(:,k)'*R*u(:,k); 
-       constraints(k*nx+1:(k+1)*nx) = (eye(2) + T/N*A)*x(:,k) + T/N*B*u(:,k) - x(:,k+1);
-       %X = X + chi(:,k+1)'*(A*x(:,k) + B*u(:,k) - x(:,k+1)); 
-       
+function [L,x,u,chi,cost] = Lagrangian(T,N,nx,nu,Q,R,A,B,xx,uu,sol,args,nlpProb)
+%Number of eqconstraints = N*nx  <=> Number of lagrange multipliers for eq
+%% Initialization of variables
+    syms x   [N+1 nx] real; x=x';        %State variables
+    syms u   [N nu]   real; u=u';       %Input variables
+    syms chi [N nx] real; %Lagrange multipliers for function eq constraints
+    z = [x(:,2:end);u];         %Decision variables vector
+    cost = sym('0'); 
+    constraints(1:N*nx,1) = sym('0');
+    vars = [x;u,0;chi']
+    nums 
+    chi = reshape(chi',N*nx,1);
+%% Calculation of symbolic lagrangian
+    for k = 1:N % Sum of cost, from 0 to N-1
+        cost = cost + z(1:nx,k)'*Q*z(1:nx,k) + z(nx+1:nx+nu,k)'*R*z(nx+1:nx+nu,k);
+        constraints((k-1)*nx+1:k*nx) = A*x(:,k) + B*u(:,k) - x(:,k+1);
     end
-    L  = chi*constraints + cost;
-    fprintf("Sol.Cost = %6.2f \nCus.Cost = %6.2f\n",full(sol.f),eval(subs(cost,x,xx)))
-    fprintf("Lagrangian: %s \n",L)
-    fprintf("Evaluation of Lagrangian:\n \t %6.2f \n",eval(subs(L,vars,nums)))
-    fprintf("Evaluation of gradient_X: \n")
-    J = [];
-    J1 = [];
-    J2 = [];
-    for i = 1:(N+1)
-        J1 = [J1, diff(L,x(1,i),1)];
-        J2 = [J2, diff(L,x(2,i),1)];
+    L = cost + chi'*constraints;
+
+%% Calculation of symbolic gradients
+    J(nx+nu,N,1) = sym('0');
+    Jrow(1,N) = sym('0');
+    for row = 1:nx+nu
         
+        for col = 1:N
+            Jrow(1,col) = diff(L,z(row,col),1);
+        end
+        J(row,:) = Jrow;
     end
-    J1 = (eval(subs(J1,vars,nums)));
-    J2 = (eval(subs(J2,vars,nums)));
-    J = [J1;J2]
-    
-    
-    
-    
-    
+    J
+
 
 
 end
