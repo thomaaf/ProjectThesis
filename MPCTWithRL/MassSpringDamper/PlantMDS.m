@@ -4,7 +4,7 @@ k = 1; m = 1; d = 1;
 A = [0 1;
     -k/m -d/m];
 B = [0; 1/m];
-D = [0;rand*3 + 1];
+D = [0;rand + 1];
 dx = A*[x1;x2] + B*u + D;
 end
 

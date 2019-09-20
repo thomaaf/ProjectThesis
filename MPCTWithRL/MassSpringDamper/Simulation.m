@@ -1,72 +1,16 @@
 function [x,u,xopt,uopt,t]= Simulation(A,B,Q,Qsym,R,Rsym,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,T,nx,nu)
 %% Multiple shooting, Linear model
-%% Initialization
-%-----------Define the states and inputs---------
-    X  = casadi.SX.sym('X',nx,N+1); %State/decision variables
-    U  = casadi.SX.sym('U',nu,N);   %Input/decision variables
-    P = casadi.SX.sym('P',nx*2);    %Inital and reference values
-    stageCost = casadi.SX(N,1);     %Vector of Stagecost/objective function
-    obj = 0;                        %Objective function -> sum of stageCost
-    g2 = casadi.SX(nx*N+nx,1);      %Vector of equality constraints
-    
-%----------Setup of NLP--------------    
-%Calculation of stagecost, Objective function, and constraints
-    g2(1:nx) = X(:,1) - P(1:nx);
-    for i = 1:N
-       g2(i*nx+1:(i+1)*nx) = X(:,i+1) - (X(:,i) + T/N*(A*X(:,i) + B*U(:,i)));
-       
-       %stageCost(i) = 0.5*(X(:,i)-P(nx+1:end))'*Q*(X(:,i)-P(nx+1:end)) + 0.5*U(:,i)'*R*(U(:,i));
-       stageCost(i) = 0.5*(X(:,i+1))'*Q*(X(:,i+1)) + 0.5*U(:,i)'*R*(U(:,i));
-       
-       obj = obj + stageCost(i);
-       
-    end
-% Define Optimization variables and the nlpProblem
-    OPTVariables = [reshape(X,nx*(N+1),1); reshape(U,nu*N,1)];
-    nlpProb = struct('f',obj,'x',OPTVariables, 'g',g2,'p',P);
-%--------Arguments & Options------------
-%Options
-    opts = struct;
-    opts.ipopt.max_iter = 100;
-    opts.ipopt.print_level = 0;
-    opts.print_time = 0;
-    opts.ipopt.acceptable_tol = 1e-8;
-    opts.ipopt.acceptable_obj_change_tol = 1e-6;
-    solver = casadi.nlpsol('solver', 'ipopt', nlpProb,opts);   
-%Arguments
-    args = struct;
-% lbg&ubg = lower and upper bounds on the equality constraint
-    args.lbg(1:nx*(N+1),1) = 0; 
-    args.ubg(1:nx*(N+1),1) = 0;
+%% Multiple shooting is a method to set up a non linear program to be solved by an
+%% inferior point solver, here IPOPT. This function takes in an estimated model, 
+%% constraints on states and inputs, costfunction matricies, and MPC-parameters, for then
+%% to solve and simulate the resulting system with an MPC-controller. 
 
-%lbx&ubx = lower and upper bounds on the decision states;
-%Checking for any upper or lower bounds, and adding them to args if
-%existing.
-    for i = 1:nx
-        if ~isempty(Xlb) % Lower bounds on X
-            args.lbx(i:nx:nx*(N+1),1) = Xlb(i); 
-        else
-            args.lbx(i:nx:nx*(N+1),1) = -inf; 
-        end
-        if ~isempty(Xub) % Upper bounds on X
-            args.ubx(i:nx:nx*(N+1),1) = Xub(i);
-        else
-            args.ubx(i:nx:nx*(N+1),1) = inf;             
-        end        
-    end
-    for i  = 1:nu
-        if ~isempty(Ulb) % Lower bounds on U
-            args.lbx(nx*(N+1)+i:nu:nx*(N+1) + nu*N,1) = Ulb(i); 
-        else
-            args.lbx(nx*(N+1)+i:nu:nx*(N+1) + nu*N,1) = -inf; 
-        end
-        if ~isempty(Uub) % Upper bounds on U
-            args.ubx(nx*(N+1)+i:nu:nx*(N+1) + nu*N,1) = Uub(i); 
-        else
-            args.ubx(nx*(N+1)+i:nu:nx*(N+1) + nu*N,1) = inf;             
-        end       
-    end
-    
+%% Initialization
+    nlpProb = NLPsetup(nx,nu,N,T,A,B,Q,R);
+%% Options
+    [opts,args] = options(nx,nu,N,Xlb,Xub,Ulb,Uub);
+    solver = casadi.nlpsol('solver', 'ipopt', nlpProb,opts);   
+
 %% Simulation loop
 %------Output Variables-----
     x = zeros(tspan/h,size(x0,1));      %Matrix of resulting states
@@ -74,8 +18,6 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,Qsym,R,Rsym,x0,xRef,Xlb,Xub,Ulb,Uub
     xopttmp = zeros(tspan/h*nx,N+1);    %Matrix of all optimal trajetories at each optitime t
     uopttmp = zeros(tspan/h*nu,N);      %Matrix of all optimal inputs at each optitime t
     
-    
-    %X0 = repmat(x0,1,N+1); 
     X0 = zeros(2,N+1);                  %Initial search area for X variables
     U0 = zeros(N,nu);                   %Initial search area for U variables
     xx = zeros(nx,N);                   %Vector of current optimal trajectory
@@ -88,9 +30,7 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,Qsym,R,Rsym,x0,xRef,Xlb,Xub,Ulb,Uub
 %Start of simulation   
     while(norm((x0-xRef),2)> 1e-3 && mpciter<tspan/h)
         mpciter = mpciter + 1;
-        t = h*(mpciter-1);              %current simulation time
-        
-        if t>=inputTime
+        if h*(mpciter-1)>=inputTime
             % Set the current values of references and x0 in args.p
             % Set the search space for next opti in args.x0
             args.p = [x0;xRef]; 
@@ -103,14 +43,14 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,Qsym,R,Rsym,x0,xRef,Xlb,Xub,Ulb,Uub
             %Extract inputs and path. Disp in proper form
             uu  = reshape(full(sol.x(nx*(N+1)+1:end))',nu,N); 
             xx  = reshape(full(sol.x(1:nx*(N+1)) ),nx,N+1);     
+            
             %Store optimal solution in matrix
             xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
             uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = uu;
+            
             %Next optimalization time
             inputTime = inputTime + T/N;
-            %Symbolic calculation of lagrangian, and resulting sensitivites
-            %analysis.
-            %[LSym,xSym,uSym,chiSym,cost] = LagrangianPhi(T,N,nx,nu,Q,Qsym,R,Rsym,A,B,xx,uu,sol,args,nlpProb,mpciter);            
+            [LSym,xSym,uSym,chiSym,cost] = LagrangianPhi(T,N,nx,nu,Q,Qsym,R,Rsym,A,B,xx,uu,sol,args,nlpProb,mpciter);            
         else 
             %No optimalization, store as nan in order to ease plotting
             xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = nan;
@@ -147,6 +87,84 @@ function [x,u,xopt,uopt,t]= Simulation(A,B,Q,Qsym,R,Rsym,x0,xRef,Xlb,Xub,Ulb,Uub
     
 end
 
+function nlpProb = NLPsetup(nx,nu,N,T,A,B,Q,R)
+%% This function declares the primary cost,states,and constraints, and thereby defines
+%% the NLPproblem 
+%-----------Define the states and inputs---------
+    X  = casadi.SX.sym('X',nx,N+1); %State/decision variables
+    U  = casadi.SX.sym('U',nu,N);   %Input/decision variables
+    P = casadi.SX.sym('P',nx*2);    %Inital and reference values
+    stageCost = casadi.SX(N,1);     %Vector of Stagecost/objective function
+    obj = 0;                        %Objective function -> sum of stageCost
+    g2 = casadi.SX(nx*N+nx,1);      %Vector of equality constraints
+    
+%----------Setup of NLP--------------    
+%Calculation of stagecost, Objective function, and constraints
+    g2(1:nx) = X(:,1) - P(1:nx);
+    for i = 1:N
+       g2(i*nx+1:(i+1)*nx) = X(:,i+1) - (X(:,i) + T/N*(A*X(:,i) + B*U(:,i)));
+       
+       l 
+       
+       %stageCost(i) = 0.5*(X(:,i+1))'*Q*(X(:,i+1)) + 0.5*U(:,i)'*R*(U(:,i));
+       
+       obj = obj + stageCost(i);
+       
+    end
+% Define Optimization variables and the nlpProblem
+    OPTVariables = [reshape(X,nx*(N+1),1); reshape(U,nu*N,1)];
+    nlpProb = struct('f',obj,'x',OPTVariables, 'g',g2,'p',P);
+%--------Arguments & Options------------
+
+end
+
+function  [opts,args]= options(nx,nu,N,Xlb,Xub,Ulb,Uub)
+%% This function declares options for the solver (IPopt), and prepares other
+%% arguments, such as bounds on states, for the Solver. 
+%Options
+    opts = struct;
+    opts.ipopt.max_iter = 100;
+    opts.ipopt.print_level = 0;
+    opts.print_time = 0;
+    opts.ipopt.acceptable_tol = 1e-8;
+    opts.ipopt.acceptable_obj_change_tol = 1e-6;
+%Arguments
+    args = struct;
+% lbg&ubg = lower and upper bounds on the equality constraint
+    args.lbg(1:nx*(N+1),1) = 0; 
+    args.ubg(1:nx*(N+1),1) = 0;
+
+%lbx&ubx = lower and upper bounds on the decision states;
+%Checking for any upper or lower bounds, and adding them to args if
+%existing.
+    for i = 1:nx
+        if ~isempty(Xlb) % Lower bounds on X
+            args.lbx(i:nx:nx*(N+1),1) = Xlb(i); 
+        else
+            args.lbx(i:nx:nx*(N+1),1) = -inf; 
+        end
+        if ~isempty(Xub) % Upper bounds on X
+            args.ubx(i:nx:nx*(N+1),1) = Xub(i);
+        else
+            args.ubx(i:nx:nx*(N+1),1) = inf;             
+        end        
+    end
+    for i  = 1:nu
+        if ~isempty(Ulb) % Lower bounds on U
+            args.lbx(nx*(N+1)+i:nu:nx*(N+1) + nu*N,1) = Ulb(i); 
+        else
+            args.lbx(nx*(N+1)+i:nu:nx*(N+1) + nu*N,1) = -inf; 
+        end
+        if ~isempty(Uub) % Upper bounds on U
+            args.ubx(nx*(N+1)+i:nu:nx*(N+1) + nu*N,1) = Uub(i); 
+        else
+            args.ubx(nx*(N+1)+i:nu:nx*(N+1) + nu*N,1) = inf;             
+        end       
+    end
+    
+
+end
+
 function x = RK4(x,u,dt,t)
 %Numerical Simulation method, Runge kutte of 4th order
     k1 = dt*PlantMDS(x(t,:)',u);
@@ -156,8 +174,10 @@ function x = RK4(x,u,dt,t)
     x(t+1,:) = x(t,:) + 1/6*(k1 + 2*k2 + 2*k3 + k4)';
 end
     
-    
 function [L,x,u,chi,cost] = LagrangianX(T,N,nx,nu,Q,Qsym,R,Rsym,A,B,xx,uu,sol,args,nlpProb)
+%% This function calculates the symbolic lagrangian at the given optimum x*. IT thereafter
+%% prints the KKT-conditions, and if no errors, then the Gradient should be all zero
+
 %Number of eqconstraints = N*nx  <=> Number of lagrange multipliers for eq
 %Solver uses X0 as a decision variable, and an equality constraint? to 
 %Ensure that it = x0. nx new multipliers and nx constraints are therefore
@@ -203,10 +223,10 @@ function [L,x,u,chi,cost] = LagrangianX(T,N,nx,nu,Q,Qsym,R,Rsym,A,B,xx,uu,sol,ar
 end
 
 function [L,x,u,chi,cost] = LagrangianPhi(T,N,nx,nu,Q,Qsym,R,Rsym,A,B,xx,uu,sol,args,nlpProb,mpciter)
-%Number of eqconstraints = N*nx  <=> Number of lagrange multipliers for eq
-%Solver uses X0 as a decision variable, and an equality constraint? to 
-%Ensure that it = x0. nx new multipliers and nx constraints are therefore
-%added
+%% This function calculates the symbolic gradient with respect to parametric variables in
+%% the cost function, such as Q and R. It is used to view the sensitivities of the solution, 
+%% given the tuning parameters Q and R 
+
 %% Initialization of variables
     x0 = xx(:,1);
     phi = [reshape(Qsym,nx*nx,1);reshape(Rsym,nu*nu,1) ]; 

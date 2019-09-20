@@ -7,23 +7,27 @@
 
 
 %%
+
+syms q1 q2 q3 q4
+syms r1
 nx = 2; nu = 1;
-N = 10; T = 1; 
-A = [0 1; 1 1];
+N = 10; T = 2; 
+A = [0 1; -1 -1];
 B = [0;1];    
-Q = diag([20 40]);
+Q = [8000000,0;0,40];
+Qsym = [q1 q2;q3 q4];
 R = 0;
+Rsym = r1;
 x0 = [1;0.5];
-tspan = 10;
+tspan = 6;
 h = 0.01;
 xRef= [0;0];
 Xlb = []; Xub = [];
-Ulb = []; Uub = [];
-[x,u,xopt,uopt,t] = Simulation(A,B,Q,R,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,T,nx,nu);
+Ulb = [-4]; Uub = [4];
+[x,u,xopt,uopt,t] = Simulation(A,B,Q,Qsym,R,Rsym,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,T,nx,nu);
 %%
-figure(2)
-clf(2)
-plot(t,xopt(size(xopt,1)/2+1:10:end,'b-.');
+
+%plot(t,xopt(size(xopt,1)/2+1:10:end,'b-.');
 figure(1)
 if(0)
     for i = 1:size(x,1)
@@ -45,26 +49,43 @@ if(0)
         pause(0.0001)
     end
 end
-h = 0.01
-figure(1)
-clf(1)
+%colors = ['k.','k-.','y.','y-.'];
+%colors = ['b.','b-.','r.','r-.'];
+colors = ['m.','m-.','c.','c-.'];
+
+h = 0.01;
+figure(2)
+subplot(2,1,1)
 axis([0 max(t),-2 2])
 grid on
 opt = plot(0,0);
 inp = plot(0,0);
 for i = 1:size(x,1)
    title(u(i))
-   plot(t(i),x(i,1),'b.'); hold on; grid on
+   subplot(2,1,1)
+   p1 = plot(t(1:i),x(1:i,1),colors(1:2)); hold on; grid on
+   axis([0 max(t),-2 2])
+   subplot(2,1,2)
+   
+   p2 = plot(t(1:i),u(1:i,1),colors(6:7)); 
+   axis([0 max(t),-2 2]); hold on; grid on
    if ~isnan(xopt(i,:)) 
-        
         delete(opt);
-        delete(inp);       
-        opt = plot(t(i:T/N/h:i+T/h),xopt(i,:),'b-.');
-        inp = plot(t(i:T/N/h:i+(T-T/N)/h),uopt(i,:),'r-.');
+        delete(inp); 
+        subplot(2,1,1)
+        opt = plot(t(i:T/N/h:i+T/h),xopt(i,:),colors(3:5));
+        subplot(2,1,2)
+        inp = plot(t(i:T/N/h:i+(T-T/N)/h),uopt(i,:),colors(8:10));
        
    end
-   pause(0.1)
-   axis([0 max(t),-2 2])
+   %axis([0 max(t),-2 2])
+   pause(0.01)
+   delete(p1)
+   delete(p2)
 
 end
-
+   title(u(i))
+   subplot(2,1,1)
+   p1 = plot(t(1:i),x(1:i,1),colors(1:2)); hold on; grid on
+   subplot(2,1,2)
+   p2 = plot(t(1:i),u(1:i,1),colors(6:7)); 
