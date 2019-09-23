@@ -1,1 +1,7 @@
-1. Check that all constraints are on the same format in both the NLP and sensitivity analysis
+1.  By choosing Q = eye(2), R = 1,Then the cost function is on the form of Vii-, and
+¨   the NLP problem is stated. The next tasks becomes to introduce on-policy algorithm 
+    for estimation of primariyl f. 
+
+2.  If estimation of f alone does not work, consider adding base cost V0 to obj
+
+3.  Start estimation of model parameters. 

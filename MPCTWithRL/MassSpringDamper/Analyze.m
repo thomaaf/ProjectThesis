@@ -1,74 +1,67 @@
-function Analyze(x,u,t,Xmpc,Umpc)
-    A = [0,1,0,0;0,0,4.90500000000000,0;0,0,0,1;0,0,14.7150000000000,0];
-    B = [0;1;0;2];
-    Q = eye(4); R = 1; N = 0;
-    K = lqr(A,B,Q,R,N);
-    %u = x(5:8)*K';
-    %x = [x, [0;u]];
+function Analyze(x,u,t)
     figure(1)
-    clf(1)
-    loopenabled = uicontrol('Style', 'pushbutton','String','hello','Callback',@BreakLoop,'Value',1);
+    clf(1);
+    pos = figure(1);
+    subplot(3,1,1);
+    plot(t(1:size(x,1),1),x(:,1),'Tag','Position'); grid on; 
+    title('Position'); xlabel('Time [s]'); ylabel('Position [m]')
+    axis([0 max(t) min(x(:,1))-1 max(x(:,1))+1]);
+    
+    
+    subplot(3,1,2)
+    plot(t(1:size(x,1),1),x(:,2),'Tag','Velocity'); grid on; 
+    title('Velocity'); xlabel('Time [s]'); ylabel('Velocity [m/s]')
+    axis([0 max(t) min(x(:,2))-1 max(x(:,2))+1]);
 
-    while(loopenabled.Value )
-        pause(1)
-        if ~loopenabled.Value 
+    subplot(3,1,3) 
+    plot(t(1:size(x,1),1),u,'Tag','Input'); grid on; 
+    title('Input'); xlabel('Time [s]'); ylabel('Force [N]')
+    axis([0 max(t) min(u(:,1))-2 max(u(:,1))+2]);
+    c = uicontrol(pos,'Style','slider','Position',[2 2 100 20],'Callback',@sliderUpdate);
+    
+end
+
+function sliderUpdate(src,event)
+    N = evalin('base','N');T = evalin('base','T');
+    xopt = evalin('base','xopt'); 
+    uopt = evalin('base','uopt');
+    t    = evalin('base','t');
+    
+    n = round(src.Value*size(uopt,1));
+    optIndex = 1;
+    for i= n:-1:1
+        if ~isnan(xopt(i,1))
+            optIndex = i;
             break;
         end
-    for i = 1:4:size(x,1)
-        if~loopenabled.Value
-            break;
-        end
-       hold off
-       %Cart
-            plot(x(i,1)+0.2,0,'ob'); hold on;
-            plot(x(i,1)-0.2,0,'ob')
-            line([x(i,1)-0.2, x(i,1) + 0.2],[0,0])
-            line([x(i,1)-0.2, x(i,1) + 0.2],[0.1,0.1])
-            line([x(i,1)-0.2, x(i,1)-0.2],[0,0.1])
-            line([x(i,1)+0.2, x(i,1)+0.2],[0,0.1])
-       axis([-2,2,-1.5,1.5])
-       title(t(i))       
-       line([x(i,1), x(i,1) - sin(x(i,3))],[0.05,cos(x(i,3))])
-       plot(x(i,1) - sin(x(i,3)),cos(x(i,3)),'ob')
-       %line([x(i,5), x(i,5) - sin(x(i,7))],[0,cos(x(i,7))],'Color','black');
-       grid on
-       
-       
-   
-%        %Cart
-%             plot( Xmpc(i,1)+0.2,0,'or'); hold on;
-%             plot( Xmpc(i,1)-0.2,0,'or')
-%             line([Xmpc(i,1)-0.2, Xmpc(i,1) + 0.2],[0,0],'Color','red')
-%             line([Xmpc(i,1)-0.2, Xmpc(i,1) + 0.2],[0.1,0.1],'Color','red')
-%             line([Xmpc(i,1)-0.2, Xmpc(i,1)-0.2],[0,0.1],'Color','red')
-%             line([Xmpc(i,1)+0.2, Xmpc(i,1)+0.2],[0,0.1],'Color','red')
-%        line([Xmpc(i,1), Xmpc(i,1) - sin(Xmpc(i,3))],[0.05,cos(Xmpc(i,3))],'Color','red')
-%        plot(Xmpc(i,1) - sin(Xmpc(i,3)),cos(Xmpc(i,3)),'or')
-%        %line([x(i,5), x(i,5) - sin(x(i,7))],[0,cos(x(i,7))],'Color','black');
-%        grid on
-       
-       %plot(x(i,5),0,'x')
-       pause(0.5)
-%         if (abs(x(i,1))<0.01) && (abs(x(i,2))<0.01)
-%             break;
-%         end
+    end
+    delete(findobj('tag','optPos'))
+    delete(findobj('tag','optPosCross'))
+    delete(findobj('tag','optVel'))
+    delete(findobj('tag','optVelCross'))
+    delete(findobj('tag','optInp'))
+    delete(findobj('tag','optInpCross'))
+    figure(1)
+    subplot(3,1,1)
+    m = string(t(optIndex));
+    title('Position, optControl at t = '+m + " s")
+    hold on;
+    plot(t(optIndex:T/0.01/N:optIndex+T/0.01), xopt(optIndex,:),'b-.','Tag','optPos');
+    plot(t(optIndex:T/0.01/N:optIndex+T/0.01), xopt(optIndex,:),'rx','Tag','optPosCross');
+    hold off;
+    
+    subplot(3,1,2)
+    hold on;
+    plot(t(optIndex:T/0.01/N:optIndex+T/0.01), xopt(optIndex+size(xopt,1)/2,:),'b-.','Tag','optVel');
+    plot(t(optIndex:T/0.01/N:optIndex+T/0.01), xopt(optIndex+size(xopt,1)/2,:),'rx','Tag','optVelCross');
+    hold off;
+    
+    subplot(3,1,3)
+    hold on;
+    plot(t(optIndex:T/0.01/N:optIndex+T/0.01 -T/0.01/N), uopt(optIndex,:),'b-.','Tag','optInp');
+    plot(t(optIndex:T/0.01/N:optIndex+T/0.01 -T/0.01/N), uopt(optIndex,:),'rx','Tag','optInpCross');
+    hold off;
         
-    end
-    end
-    name = ["Cart Pos","Cart Vel","Pendulum Pos","Pendulum Vel","input"];
-    figure(2)
-    %clf(2)
-    for i= 1:size(name,2)
-       subplot(2,3,i)
-       hold on;
-       plot(x(:,i));
-       title(name(i))
-       grid on;
-    end
-end
+    
 
-function BreakLoop(src,event)
-    src.Value = 0
-    event
 end
-

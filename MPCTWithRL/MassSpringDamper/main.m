@@ -10,23 +10,34 @@
 %Model parameters
 %   states,inputs,time,prediction
     nx = 2; nu = 1;
-    N = 10; T = 2; 
+
     A = [0 1; -1 -1];
     B = [0;1];    
-
+    Model = struct('nx',nx,'nu',nu,'A',A,'B',B);
 %MPC parameters
+    N = 5; T = 2; 
     syms q1 q2 q3 q4
     syms r1
     Q = [80,0;0,40];    Qsym = [q1 q2;q3 q4];
-    R = 0;              Rsym = r1;
+    R = 1;              Rsym = r1;
     Xlb = []; Xub = [];
     Ulb = [-4]; Uub = [4];
+    MPCParam = struct('N',N,'T',T,'Q',Q,'Qsym',Qsym,'R',R,'Rsym',Rsym,'Xlb',Xlb,'Xub',Xub,'Ulb',Ulb, ...
+        'Uub',Uub);
+    
+%RL Parameters
+    gamma = 0.9;
+    f = [0;0;0];
+    RLParam = struct('gamma',gamma,'f',f);
 %initial conditions and durations
-    x0 = [1;0.5];
+    
+    x0 = [2;0.5];
     tspan = 6;
     h = 0.01;
     xRef= [0;0];
+    
+    InitParam = struct('x0',x0,'tspan',tspan,'h',h,'xRef',xRef);
 %%
-[x,u,xopt,uopt,t] = Simulation(A,B,Q,Qsym,R,Rsym,x0,xRef,Xlb,Xub,Ulb,Uub,h,tspan,N,T,nx,nu);
+[x,u,xopt,uopt,t] = Simulation(Model,MPCParam,RLParam,InitParam);
 %%
-
+Analyze(x,u,t)
