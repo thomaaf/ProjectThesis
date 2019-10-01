@@ -1,125 +1,124 @@
 clear;
+%% TD(lambda)
+% Implementation of TD(lambda) on a nxn gridworld. 
 
-n  = 4; 
+%% Enviroment 
+% nxn gridworld with reward in each grid by R. R is randomized with -1 and
+% -4 for dynamic paths. ~70% of R = -4
+% Startpos is for storage of inital conditions in order for similar Traing
+% sets. If desired, then R must be equal for each set, and defined as a
+% matrix
+n  =10; 
+R = -ones(n);% R(1,3) = -3; R(3,1) = -3;
+R = reshape(R',1,n*n);
+%R = [-1,-1,-4,-1,-1,-4,-1,-4,-1,-1,-4,-1,-1,-1,-4,-1,-4,-1,-1,-1;-4,-1,-4,-1,-4,-4,-1,-1,-4,-1,-1,-4,-1,-4,-1,-4,-1,-4,-4,-1;-4,-1,-4,-1,-4,-4,-4,-4,-4,-4,-1,-1,-4,-1,-4,-1,-4,-4,-1,-4;-4,-4,-4,-4,-4,-1,-4,-4,-4,-1,-4,-4,-4,-4,-4,-4,-4,-4,-1,-1;-1,-4,-1,-4,-1,-1,-1,-4,-1,-1,-4,-1,-1,-1,-4,-4,-4,-1,-4,-1;-4,-1,-1,-4,-1,-4,-4,-4,-1,-1,-4,-1,-4,-4,-4,-1,-1,-1,-1,-1;-1,-4,-1,-1,-1,-1,-4,-4,-1,-4,-1,-4,-4,-1,-4,-4,-4,-4,-4,-4;-1,-1,-4,-1,-4,-4,-4,-4,-1,-4,-1,-4,-4,-4,-1,-1,-4,-1,-4,-1;-4,-4,-1,-4,-4,-1,-4,-1,-4,-4,-1,-4,-1,-1,-1,-4,-1,-4,-4,-1;-4,-4,-1,-4,-1,-1,-1,-4,-4,-1,-4,-4,-4,-4,-1,-4,-4,-1,-1,-1;-4,-1,-1,-1,-4,-4,-1,-1,-1,-1,-1,-4,-4,-4,-1,-4,-1,-4,-1,-4;-4,-4,-1,-1,-4,-1,-1,-1,-1,-1,-1,-1,-4,-1,-4,-4,-4,-4,-4,-1;-1,-1,-4,-4,-4,-1,-4,-1,-1,-1,-1,-1,-1,-1,-4,-1,-1,-4,-4,-1;-4,-1,-4,-1,-4,-1,-4,-4,-1,-1,-4,-1,-1,-1,-1,-4,-4,-1,-1,-4;-4,-1,-1,-1,-1,-4,-1,-1,-4,-1,-1,-1,-4,-1,-1,-4,-1,-1,-4,-1;-4,-4,-1,-1,-1,-1,-4,-4,-4,-1,-4,-1,-1,-4,-1,-4,-1,-4,-1,-1;-4,-4,-4,-4,-1,-1,-1,-4,-4,-1,-4,-1,-1,-1,-1,-1,-4,-4,-4,-1;-4,-4,-1,-1,-1,-1,-1,-1,-4,-1,-4,-1,-4,-1,-1,-1,-1,-4,-4,-1;-4,-1,-4,-4,-4,-1,-4,-1,-4,-1,-1,-1,-1,-1,-4,-1,-1,-1,-1,-1;-4,-1,-4,-1,-1,-1,-1,-4,-4,-4,-4,-1,-1,-4,-4,-4,-1,-4,-4,-1];
+%R = [-1,-4,-4,-4,-4,-4,-1,-4,-1,-4;-1,-1,-1,-4,-4,-1,-4,-1,-4,-4;-1,-4,-1,-4,-1,-4,-4,-4,-4,-4;-1,-4,-4,-4,-1,-4,-1,-1,-1,-1;-1,-1,-4,-4,-1,-4,-4,-1,-1,-1;-1,-4,-1,-4,-4,-4,-1,-4,-4,-4;-4,-1,-4,-1,-1,-4,-4,-4,-1,-1;-1,-4,-1,-1,-1,-1,-4,-1,-1,-1;-4,-4,-4,-1,-4,-1,-1,-4,-4,-1;-4,-4,-4,-1,-1,-4,-1,-4,-4,-4];
+for i = 1:n*n
+    
+    if rand>0.7
+        R(i) = -4;
+    end
+end
+x0 = [floor(n/2);floor(n/2)];        
+s = x0(1) + (x0(2)-1)*n;   
+nepisodes = 1000;
+
+startpos = zeros(nepisodes,2);
+%CurrentPos = [mod(s-1,n) + 1;floor((s-1)/n)+1];
+%% RL-parameters
+
 V = zeros(1,n*n);
 E = zeros(1,n*n);
-rewardGrid = -ones(n);
-% rewardGrid = [-1  -1  -1  -1   -10 -10;
-%               -10 -10 2  -1   -10 -10;
-%               -10 -10 2  -1   -10 -10;
-%               -10 -10 2  -50   -10 -10;
-%               -10 -10 2  -1   -10 -10;
-%               -10 -10 -1  -1   -1  -1]
-
-% rewardGrid= [-1 -1 -1 -1;
-%              -1 -1 -1 -1;
-%              -1 -1 -10 -1;
-%              -1 -1 -1 -1];
-
-% rewardGrid = floor(randn(n)*4)
-
-
-terminal1 = [1;1]; %rewardGrid(terminal1(1),terminal1(2)) = 0;
-terminal2 = [n;n]; %rewardGrid(terminal2(1),terminal2(2)) = 0;
-
-actionList = [];
-gamma = .9;
-alfa = 0.5;
-lambda = 0.5;
-actionSet = ["up","right","down","left"];
-stateSet = [1,2,3;
-            4,5,6;
-            7,8,9];  
-x0 = [floor(n/2);floor(n/2)];        
-s = x0(1) + (x0(2)-1)*n;    
+gamma =  .99;
+alfa =   .8;
+lambda = .8;
 delta = [];
-for k = 1:1000
-    E = zeros(1,n*n);
+
+steps = zeros(nepisodes,1);
+
+for k = 1:nepisodes           
+    k
     while s ~= 1 && s~=n*n
-        CurrentPos = [mod(s-1,n) + 1;floor((s-1)/n)+1];
-        %1. Take an action a given by pi,
-        %       -Obsereve reward r and next state sn        
-        a = chooseAction(s,V);
-        sn = move(s,a); nextPos = [mod(sn-1,n) + 1;floor((sn-1)/n)+1];  
-        r = rewardGrid(nextPos(1),nextPos(2));
-        %2. Update the temporal difference
-        delta = [delta;r + gamma*V(sn) - V(s)];
-        %3. Update the eligibility trace of state s
-        E(s) = E(s) + 1;
+        steps(k) = steps(k) + 1;
         
-%         fprintf("Current position is  : [%i;%i]\nCurrent action is    : %s\n",CurrentPos(1),CurrentPos(2),a)
-%         fprintf("next position becomes: [%i;%i]\n",nextPos(1),nextPos(2))
-        
-        %4. Sweep over all states s, and update the valueFunction
-        for s = 1:n*n
+        a = chooseAction(s,V);                  %Taken action given by pi
+        sn = move(s,a); 
+        nextPos = [mod(sn-1,n) + 1;floor((sn-1)/n)+1];  
+        r = R(s);                               %R(sn|s,a)
+        delta = [delta;r + gamma*V(sn) - V(s)]; %TD-error
+        E(s) = E(s) + 1;                        %Update trace of visited state
+        for s = 1:n*n                           %Sweep over all positions 
             V(s) = V(s) + alfa*delta(end)*E(s);
             E(s) = gamma*lambda*E(s);
         end
-        % Progress to next state
-        s = sn;
-        
-        reshape(V,n,n)';
-        reshape(E,n,n)';
+        s = sn;                                 %Move to next position
     end
-
-%     disp("Terminal")
-    x0 = [floor(4*rand)+1;floor(4*rand)+1];        
-    s = x0(1) + (x0(2)-1)*n;       
     
+    x0 = [floor(n*rand)+1;floor(n*rand)+1];     %New random start postion
+    startpos(k,1:2) = x0';                      %Store random start position
+    %x0 = startpos(k,1:2)';
+    s = x0(1) + (x0(2)-1)*n;       
+    E = zeros(1,n*n);                            %Reset traces for next episode
 end
-reshape(V,n,n)
+%% Shape variables for readability, and write greedy path in dir
 
-%%
-Dir = "";
+VRow = V; V = reshape(V,n,n)';
+RRow = R; R = reshape(R,n,n)';
+Dir = [];
 u = zeros(1,n*n);
 v = zeros(1,n*n);
 for s = 1:n*n
-    a = chooseAction(s,V);
-    Dir = [Dir,a];
-    s;
-    
+    a = chooseAction(s,VRow);
+    Dir = [Dir;a];
     if a == "up"
-        u(s) = 0;
-        v(s) = 1;
+        v(s) = -1;
     elseif a == "right"
         u(s) = 1;
-        v(s) = 0;
     elseif a == "down"
-        u(s) = 0;
-        v(s) = -1;
+        v(s) =1;
     else 
         u(s) = -1;
-        v(s) = 0;
     end
-    if s == 1 || s == n*n
-        u(s) = 0;
-        v(s) = 0;
-        Dir(s+1) = ""
-    end
-    
 end
-Dir = Dir(2:end);
-reshape(Dir,n,n)'
-reshape(V,n,n)'     
-u = reshape(u,n,n)';
-v = reshape(v,n,n)';
+DirRow = Dir; Dir = reshape(Dir,n,n)';
+uRow = u; u = reshape(u,n,n)';
+vRow = v; v = reshape(v,n,n)';
+
+%% Plott 
 
 figure(1)
-hold on
 clf(1)
 for x = 1:n
     for y = 1:n
-        hold on
-        quiver(y,x,u(x,y),v(x,y));
-
-        axis([0 n+1 0 n+1]);
+        hold on;
+        quiver(y,x,u(x,y),v(x,y),'k','lineWidth',2,'maxHeadSize',2)
+        scatter(y,x,-R(x,y)*70,'r','filled')
     end
 end
-grid on
-V = reshape(V,n,n)
-surf(V)
+title("Greedy path with V-contour and scatter R")
+xlabel('x'); ylabel('y'); grid on
+contour(V,30)
 
+figure(2)
+clf(2)
+plot(delta)
+title("current TD-error")
 
+movRMS = dsp.MovingRMS(200);
+figure(3)
+hold on
+plot(movRMS(delta))
+grid on;
+title("TD-error RMS(200)")
+
+figure(4)
+surf(V + R)
+xlabel('x'); ylabel('y'); grid on
+title("Value + Rewards")
+figure(5)
+surf(R)
+title("Rewards")
+xlabel('x'); ylabel('y'); grid on
 %% Functions
 function sn = move(s,a)
 % Takes an action a, and spits out the next position given this action
