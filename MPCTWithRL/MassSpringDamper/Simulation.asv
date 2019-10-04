@@ -77,21 +77,21 @@ function [x,u,xopt,uopt,t]= Simulation(Model,MPCParam,RLParam,InitParam)
 
 
             if ~isnan(Vs)
-                fprint(")
-                
-                
+
                 fprintf("V(s)  = %f \nV(sn) = %f \n",Vs,Vsn)
-                fprintf("Current state s : [%2.2f,%2.2f] next state sn: [%f,%f] ",xprev,xx(:,1));
-                fprintf("Current action a: %2.2f      next action a: %f \n"   ,u(mpciter-1),uu(:,1));
-                fprintf("Current V(s)is  : %2.2f      Current V(s)is  : %f \n", Vs)
+                fprintf("Current state  s is [%f,%f]\n",xprev);
+                fprintf("Current action a is %f\n"     ,u(mpciter-1));
+                fprintf("Current V(s)     is %s", Vs)
                 
-                fprintf("next state sn is    : [%f,%f]\n",xx(:,1));
-                fprintf("next actiona is     : %f\n",uu(:,1));
-                fprintf("next V(s)is         : %f\n", Vsn)
+                fprintf("next state    sn is [%f,%f]\n",xx(:,1));
+                fprintf("Current action a is %f\n",uu(:,1));
+                fprintf("Current V(s)     is %s", Vs)
+                
+                
+                
                 fprintf("")
                 
             end            
-            xprev = xx(:,1);
             
         else 
             %No optimalization, store as nan in order to ease plotting

@@ -26,9 +26,9 @@
         'Uub',Uub);
     
 %RL Parameters
-    syms f1 f2 V0
     gamma = 0.9;
-    f = [0;0;0]; fSym = [f1,f2,V0];
+    f = [0;0;0]; 
+    f
     RLParam = struct('gamma',gamma,'f',f);
 %initial conditions and durations
     
