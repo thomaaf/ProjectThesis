@@ -1,4 +1,4 @@
-function [x,u,xopt,uopt,t]= Simulation(Model,MPCParam,RLParam,InitParam)
+function [x,u,xopt,uopt,t,TD,dataTheta]= Simulation(Model,MPCParam,RLParam,InitParam)
 %% Multiple shooting, Linear model
 %% Multiple shooting is a method to set up a non linear program to be solved by an
 %% inferior point solver, here IPOPT. This function takes in an estimated model, 
@@ -24,10 +24,11 @@ function [x,u,xopt,uopt,t]= Simulation(Model,MPCParam,RLParam,InitParam)
 
 %% Simulation loop
 %------Output Variables-----
-    x = zeros(tspan/h,nx);      %Matrix of resulting states
+    x = zeros(tspan/h,nx);              %Matrix of resulting states
     u = zeros(tspan/h,1);               %Matrix of resulting inputs
     xopttmp = zeros(tspan/h*nx,N+1);    %Matrix of all optimal trajetories at each optitime t
     uopttmp = zeros(tspan/h*nu,N);      %Matrix of all optimal inputs at each optitime t
+    TD = zeros(tspan/h,1);              %Vector of the Temporal differences
     
     X0 = zeros(2,N+1);                  %Initial search area for X variables
     U0 = zeros(N,nu);                   %Initial search area for U variables
@@ -39,19 +40,27 @@ function [x,u,xopt,uopt,t]= Simulation(Model,MPCParam,RLParam,InitParam)
 	mpciter = 0;                        %Counter for tracking simulation iterations 
     inputTime = 0;                      %Timer for when new optimalization is due.
     xprev= x0;
+    uprev= 0;
     Vs = nan;
     Vsn = nan;
+    n = 0;
+    theta = [MPCParam.Q(1);MPCParam.Q(4);MPCParam.R];
+    dataTheta = theta'
 %Start of simulation   
     while(norm((x0-xRef),2)> 1e-3 && mpciter<tspan/h)
         mpciter = mpciter + 1;
-        if h*(mpciter-1)>=inputTime
-            % Set the current values of references and x0 in args.p
-            % Set the search space for next opti in args.x0
-            args.p = [x0;xRef]; 
-            args.x0 = [reshape(X0',nx*(N+1),1); reshape(U0',nu*N,1)];
+
+
+        if (h*(mpciter-1)>=inputTime + 0.0001) || (h*(mpciter-1)>=inputTime - 0.0001)
+            n = n + 1;                                % Count how many times we have optimized
+            args.p = [x0;xRef];                                         % Set the current values of references and x0 in args.p
+            args.x0 = [reshape(X0',nx*(N+1),1); reshape(U0',nu*N,1)];   % Set the search space for next opti in args.x0
             
-            %Solves the NLP
-            sol = solver('x0',args.x0, 'lbx',args.lbx,'ubx',args.ubx,'lbg',...
+            MPCParam.Q = [theta(1) 0; 0 theta(2)];
+            MPCParam.R = theta(3);
+            nlpProb = NLPsetup(Model,MPCParam,RLParam,InitParam);
+            solver = casadi.nlpsol('solver', 'ipopt', nlpProb,opts);   
+            sol = solver('x0',args.x0, 'lbx',args.lbx,'ubx',args.ubx,'lbg',... %Solves the NLP
             args.lbg,'ubg',args.ubg,'p',args.p);
             
             %Extract inputs and path. Disp in proper form
@@ -59,9 +68,13 @@ function [x,u,xopt,uopt,t]= Simulation(Model,MPCParam,RLParam,InitParam)
             xx  = reshape(full(sol.x(1:nx*(N+1)) ),nx,N+1);     
             
             %Store optimal solution in matrix
-            xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = xx;
-            uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = uu;
+            xopttmp((n-1)*nx + 1:(n-1)*nx +nx ,1:N+1) = xx;
+            uopttmp((n-1)*nu + 1:(n-1)*nu +nu ,1:N) = uu;
             
+
+            %Apply the input and store applied input at time t
+            x = RK4(x,uu(:,1),h,mpciter);
+            u(mpciter) = uu(:,1);            
             %Next optimalization time
             inputTime = inputTime + T/N;
             Vs = Vsn;
@@ -69,34 +82,34 @@ function [x,u,xopt,uopt,t]= Simulation(Model,MPCParam,RLParam,InitParam)
 
             %[L,vars,obj] = symbolicProblem(Model,MPCParam,RLParam,InitParam,0);
             %LagrangianX(Model,MPCParam,RLParam,InitParam,L,xx,uu,sol,vars,obj)
-            %LagrangianPhi(Model,MPCParam,RLParam,InitParam,L,xx,uu,sol,vars)
-            fprintf("\n")
-            %Apply the input and store applied input at time t
-            x = RK4(x,uu(:,1),h,mpciter);
-            u(mpciter) = uu(:,1);
+            %nabla = LagrangianPhi(Model,MPCParam,RLParam,InitParam,L,xx,uu,sol,vars);
 
+            if n>1
+                fprintf("\n")
+                fprintf("Currently, we are in state s = [% 2.2f ; % 2.2f], and the current action is \n",xprev(:,1));
+                fprintf("to take a = % 2.2f. This will probably put us into the state sn = [% 2.2f ; % 2.2f]\n",uprev(:,1),xx(:,1))
+                fprintf("Optimization nr: %i \n",n)
+                fprintf("iter  =  % i \t     ;\t t  = % 2.2f \n",mpciter,h*(mpciter-1))
+                fprintf("s     = [% 2.2f,% 2.2f];\t a  = % 2.2f;\t V(s)  = % 2.2f\n",xprev(:,1),uprev(:,1),Vs)
+                fprintf("sn    = [% 2.2f,% 2.2f];\t an = % 2.2f;\t V(sn) = % 2.2f\n",xx(:,1),uu(:,1),Vsn);
 
-            if ~isnan(Vs)
-                fprint(")
-                
-                
-                fprintf("V(s)  = %f \nV(sn) = %f \n",Vs,Vsn)
-                fprintf("Current state s : [%2.2f,%2.2f] next state sn: [%f,%f] ",xprev,xx(:,1));
-                fprintf("Current action a: %2.2f      next action a: %f \n"   ,u(mpciter-1),uu(:,1));
-                fprintf("Current V(s)is  : %2.2f      Current V(s)is  : %f \n", Vs)
-                
-                fprintf("next state sn is    : [%f,%f]\n",xx(:,1));
-                fprintf("next actiona is     : %f\n",uu(:,1));
-                fprintf("next V(s)is         : %f\n", Vsn)
-                fprintf("")
-                
-            end            
-            xprev = xx(:,1);
+                fprintf("Temporal difference: l + y*V(sn) - Q(s,a) \n")
+                %fprintf("Temporal difference: l + 0.9*%2.2f - %f2.2\n",Vsn,Vs)
+                %xopts = xopttmp((mpciter-2)*nx + 1:(mpciter-2)*nx +nx ,1:N+1)
+                %uopts = uopttmp((mpciter-2)*nu + 1:(mpciter-2)*nu +nu ,1:N)
+                %RLUpdate(Model,MPCParam,RLParam,InitParam,Vs,Vsn,xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1),u)
+
+%                 fprintf("\n")
+                [TD(n) theta] = RLUpdate(Model,MPCParam,RLParam,InitParam,Vs,Vsn,xprev,uprev,xx,uu,0,theta);
+                fprintf("\n")
+                dataTheta = [dataTheta; theta'];
+                theta
+            end
+            xprev = xx;
+            uprev = uu;       
             
         else 
             %No optimalization, store as nan in order to ease plotting
-            xopttmp((mpciter-1)*nx + 1:(mpciter-1)*nx +nx ,1:N+1) = nan;
-            uopttmp((mpciter-1)*nu + 1:(mpciter-1)*nu +nu ,1:N) = nan;  
             %Apply the input and store applied input at time t
             x = RK4(x,uu(:,1),h,mpciter);
             u(mpciter) = uu(:,1);
@@ -112,21 +125,24 @@ function [x,u,xopt,uopt,t]= Simulation(Model,MPCParam,RLParam,InitParam)
     end
     
 
-    xopt = zeros(mpciter*nx,N+1);
-    uopt = zeros(mpciter*nu,N);
+    xopt = zeros(n*nx,N+1);
+    uopt = zeros(n*nu,N);
     
     %Reshaping the storage matrix s.t it is on the form x1:;x2:;...
     for i = 1:nx
-       xopt((i-1)*mpciter +1:i*mpciter ,:) = reshape(xopttmp(i:nx:mpciter*nx,:),size(xopttmp(i:nx:mpciter*nx,:),1),N+1);
+       xopt((i-1)*n+1:((i-1)*n+n),:) = xopttmp(i:nx:n*nx,:);
     end
     for i = 1:nu
-       uopt((i-1)*mpciter +1:i*mpciter ,:) = reshape(uopttmp(i:nu:mpciter*nu,:),size(uopttmp(i:nu:mpciter*nu,:),1),N);
+       uopt((i-1)*n+1:((i-1)*n+n),:) = uopttmp(i:nu:n*nu,:);
     end    
+
+    
     %Extracing only valid points, if the simulation was finished before
     %tspan
     t = (0:h:(mpciter)*h + T)';
     x = x(1:mpciter,:);
     u = u(1:mpciter,:);
+    TD = TD(2:n,:);
     
 end
 
@@ -272,6 +288,8 @@ function [L,vars,obj] = symbolicProblem (Model,MPCParam,RLParam,InitParam,type)
     LPStageCost(1:N,1) = sym('0');       %Vector of Linear, Parametrized Stagecost 
     obj = 0;                                %Objective function -> sum of stageCost    
     constraints(1:N*nx,1) = sym('0');       %Vector of all equality constraints
+
+    
     
 %% Calculation of symbolic lagrangian
 
@@ -290,7 +308,16 @@ function [L,vars,obj] = symbolicProblem (Model,MPCParam,RLParam,InitParam,type)
     obj = obj + 0.5*gamma^(k+1)*(x(:,k+1)'*Plqr*x(:,k+1));
     constraints = [x0 - x(:,1);constraints];
     L = obj - chi'*constraints;
-     
+%% Print
+    fprintf("Short form\n")
+    fprintf("V(s) =\t min z 0.5*\x0194^\x207f\x207a\x00b9*x'P\x2097x +0.5*\x03A3(\x0194^\x207f\x207b\x00b9(x'Qx + u'Ru) + f'[x;u]); \t\tn = 1:N\n")
+    fprintf("\t\t st \n\t\t \t x\x2096\x208a\x2081 = x\x2096 + T/N*(Ax\x2096 + Bu\x2096);\t\t\t\t\t\t\t\t\tk = [0:N]\n")
+    fprintf("Long form\n")
+    fprintf("DC StageCOST: \n");disp(DCStageCost)
+    fprintf("LP StageCOST: \n");disp(LPStageCost)
+    fprintf("Objective fu: \n");disp(obj)
+    fprintf("Constraints : \n");disp(constraints)
+       
     
 end
 
@@ -317,12 +344,13 @@ function  LagrangianX(Model,MPCParam,RLParam,InitParam,L,xx,uu,sol,vars,obj)
 
 end
 
-function LagrangianPhi(Model,MPCParam,RLParam,InitParam,L,xx,uu,sol,vars)
+function nabla = LagrangianPhi(Model,MPCParam,RLParam,InitParam,L,xx,uu,sol,vars)
     N = MPCParam.N;
     nx = Model.nx; nu = Model.nu;
     Qsym = MPCParam.Qsym; Rsym = MPCParam.Rsym;
     nums = full([xx;[uu,0];reshape(sol.lam_g,2,N+1)]);% Matrix of numerical values for diff variables
-    phi = [reshape(Qsym,nx*nx,1);reshape(Rsym,nu*nu,1) ]; 
+    %phi = [reshape(Qsym,nx*nx,1);reshape(Rsym,nu*nu,1) ]; 
+    phi = [Qsym(1); Qsym(4); Rsym]
 %% Calculation of symbolic gradients
     J(size(phi,1),1) = sym('0');
     for i = 1:size(phi,1)
@@ -333,12 +361,32 @@ function LagrangianPhi(Model,MPCParam,RLParam,InitParam,L,xx,uu,sol,vars)
         disp(J)
     fprintf("Numerical GradientPhi         : \n ")
         disp(eval(subs(J,vars,nums)))
-
-
-end
-   
-function RLUpdate()
+    nabla = eval(subs(J,vars,nums));
+    
+    
     
 end
+   
+
+
+function [TD, theta] = RLUpdate(Model,MPCParam,RLParam,InitParam,Vs,Vsn,x,u,xn,un,nabla,theta)
+    Q = MPCParam.Q; R = MPCParam.R;    
+    N = MPCParam.N; 
+    nx = Model.nx; nu = Model.nu;
+    alfa = 0.01;
+    Ltheta = 0;
+    nabla = [0;0;0]
+    for k = 1:N
+        [x(1:nx,k).*x(1:nx,k);0] + [0;0;u(1:nu,k)*u(1:nu,k)]
+    	Ltheta = Ltheta + x(1:nx,k)'*[1 0; 0 1]*x(1:nx,k) + u(1:nu,k)'*1*u(1:nu,k);
+        nabla = nabla + 0.5*.9^k*([x(1:nx,k).*x(1:nx,k);0] + [0;0;u(1:nu,k)*u(1:nu,k)]);
+    end
+    TD = Ltheta + 0.9*Vsn - Vs;
+    fprintf("Temporal difference: %2.2f + 0.9*%2.2f - %f2.2\n",Ltheta,Vsn,Vs)
+    fprintf("Temporal difference: %2.2f\n",TD)
+    theta = theta + alfa*TD*nabla
+    
+end
+
     
     

@@ -15,11 +15,11 @@
     B = [0;1];    
     Model = struct('nx',nx,'nu',nu,'A',A,'B',B);
 %MPC parameters
-    N = 5; T = 2; 
+    N = 5; T = 1; 
     syms q1 q2 q3 q4
     syms r1
-    Q = [80,0;0,40];    Qsym = [q1 q2;q3 q4];
-    R = 1;              Rsym = r1;
+    Q = [0.1,0;0,0.1];    Qsym = [q1 0;0 q4];
+    R = 0.1;              Rsym = r1;
     Xlb = []; Xub = [];
     Ulb = []; Uub = [];
     MPCParam = struct('N',N,'T',T,'Q',Q,'Qsym',Qsym,'R',R,'Rsym',Rsym,'Xlb',Xlb,'Xub',Xub,'Ulb',Ulb, ...
@@ -33,12 +33,23 @@
 %initial conditions and durations
     
     x0 = [2;0.5];
-    tspan = 6;
+    tspan = 500;
     h = 0.01;
     xRef= [0;0];
     
     InitParam = struct('x0',x0,'tspan',tspan,'h',h,'xRef',xRef);
 %%
-[x,u,xopt,uopt,t] = Simulation(Model,MPCParam,RLParam,InitParam);
+fprintf("================NEW SIMULATION================\n")
+fprintf("================NEW SIMULATION================\n")
+fprintf("================NEW SIMULATION================\n")
+[x,u,xopt,uopt,t,TD,dataTheta] = Simulation(Model,MPCParam,RLParam,InitParam);
 %%
+figure(2)
+clf(2)
+plot(TD(37:end),'y-.')
+hold on; grid on;
+movRMS = dsp.MovingRMS(30);
+plot(movRMS(TD(37:end)));
+figure(3)
+plot(dataTheta)
 Analyze(x,u,t)

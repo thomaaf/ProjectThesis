@@ -26,15 +26,12 @@ function sliderUpdate(src,event)
     xopt = evalin('base','xopt'); 
     uopt = evalin('base','uopt');
     t    = evalin('base','t');
+    dt = T/N;
     
-    n = round(src.Value*size(uopt,1));
+    n = floor(src.Value*size(uopt,1)*.99+1);
+    trange = round((n-1)*dt/0.01+1: dt/0.01: (n-1)*dt/0.01+1 + T/0.01);
     optIndex = 1;
-    for i= n:-1:1
-        if ~isnan(xopt(i,1))
-            optIndex = i;
-            break;
-        end
-    end
+    max(t-T)/(T/N);
     delete(findobj('tag','optPos'))
     delete(findobj('tag','optPosCross'))
     delete(findobj('tag','optVel'))
@@ -43,23 +40,22 @@ function sliderUpdate(src,event)
     delete(findobj('tag','optInpCross'))
     figure(1)
     subplot(3,1,1)
-    m = string(t(optIndex));
+    m = string(t(round((n-1)*dt/0.01+1)));
     title('Position, optControl at t = '+m + " s")
     hold on;
-    plot(t(optIndex:T/0.01/N:optIndex+T/0.01), xopt(optIndex,:),'b-.','Tag','optPos');
-    plot(t(optIndex:T/0.01/N:optIndex+T/0.01), xopt(optIndex,:),'rx','Tag','optPosCross');
+    plot(t(trange), xopt(n,:),'b-.','Tag','optPos');
+    plot(t(trange), xopt(n,:),'rx','Tag','optPosCross');
     hold off;
     
     subplot(3,1,2)
     hold on;
-    plot(t(optIndex:T/0.01/N:optIndex+T/0.01), xopt(optIndex+size(xopt,1)/2,:),'b-.','Tag','optVel');
-    plot(t(optIndex:T/0.01/N:optIndex+T/0.01), xopt(optIndex+size(xopt,1)/2,:),'rx','Tag','optVelCross');
+    plot(t(trange), xopt(n+size(xopt,1)/2,:),'b-.','Tag','optVel');
+    plot(t(trange), xopt(n+size(xopt,1)/2,:),'rx','Tag','optVelCross');
     hold off;
-    
     subplot(3,1,3)
     hold on;
-    plot(t(optIndex:T/0.01/N:optIndex+T/0.01 -T/0.01/N), uopt(optIndex,:),'b-.','Tag','optInp');
-    plot(t(optIndex:T/0.01/N:optIndex+T/0.01 -T/0.01/N), uopt(optIndex,:),'rx','Tag','optInpCross');
+    plot(t(round((n-1)*dt/0.01+1: dt/0.01: (n-1)*dt/0.01+1 + (T-T/N)/0.01)), uopt(n,:),'b-.','Tag','optInp');
+    plot(t(round((n-1)*dt/0.01+1: dt/0.01: (n-1)*dt/0.01+1 + (T-T/N)/0.01)), uopt(n,:),'rx','Tag','optInpCross');
     hold off;
         
     
