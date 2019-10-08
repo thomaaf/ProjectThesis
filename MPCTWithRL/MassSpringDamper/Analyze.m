@@ -22,12 +22,18 @@ function Analyze(x,u,t)
 end
 
 function sliderUpdate(src,event)
-    N = evalin('base','N');T = evalin('base','T');
-    xopt = evalin('base','xopt'); 
-    uopt = evalin('base','uopt');
-    t    = evalin('base','t');
+    out = evalin('base','out');
+    %init = evalin('base','InitParam');
+    MPCParam= evalin('base','MPCParam');
+    N = MPCParam.N; T = MPCParam.T;
+    xopt = out.xopt; 
+    uopt = out.uopt;
+    t = out.t;
+%     N = evalin('base','N');T = evalin('base','T');
+%     xopt = evalin('base','xopt'); 
+%     uopt = evalin('base','uopt');
+%     t    = evalin('base','t');
     dt = T/N;
-    
     n = floor(src.Value*size(uopt,1)*.99+1);
     trange = round((n-1)*dt/0.01+1: dt/0.01: (n-1)*dt/0.01+1 + T/0.01);
     optIndex = 1;

@@ -19,3 +19,4 @@ month,10,day,02,timestampIn,1570016330,timestampOut,1570025882,time,9552
 month,10,day,03,timestampIn,1570105081,timestampOut,1570119287,time,14206
 month,10,day,04,timestampIn,1570189677,timestampOut,1570208762,time,19085
 month,10,day,07,timestampIn,1570440788,timestampOut,1570463693,time,22905
+month,10,day,08,timestampIn,1570528685,timestampOut,1570550975,time,22290
