@@ -16,13 +16,14 @@ function Jnum = numericalGradiant(MPCParam,Model,Gradiant,nums)
                reshape(Plqr,size(Plqr,1)*size(Plqr,2),1)];
     vars = [vars;MPCvars];
     nums = [nums;MPCnums];
-    Jnum = eval(subs(Gradiant,vars,nums));
+    fstring = sprintf('MPCParam.F(');
+    for i = 1:size(nums,1)
+       fstring = sprintf('%s%.6e,',fstring,nums(i));
+    end
+    fstring = fstring(1:end-1); fstring = sprintf('%s)',fstring);
+    Jnum = eval(eval(fstring));    
+%    Jnum = eval(subs(Gradiant,vars,nums));
 end
 
-%     F = symfun(Gradiant,vars);
-%     fstring = sprintf('F(');
-%     for i = 1:size(nums,1)
-%        fstring = sprintf('%s%f,',fstring,nums(i));
-%     end
-%     fstring = fstring(1:end-1); fstring = sprintf('%s)',fstring);
-%     eval(eval(fstring));
+
+

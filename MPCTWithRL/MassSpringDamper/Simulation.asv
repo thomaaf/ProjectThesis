@@ -95,8 +95,7 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
                 Q = reshape(theta(optCount,1:nx*nx),2,2);
                 A = reshape(theta(optCount,nx*nx+1:end),2,2); 
                 if det(Q)<0.001 || det(A)<0.001
-                    break;
-                end
+                    
                 theta(optCount,:)
                 (simCount-1)*h
             end

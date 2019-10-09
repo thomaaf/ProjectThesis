@@ -40,15 +40,16 @@
 %initial conditions and durations
     
     x0 = [1;0];
-    tspan = 10000;
+    tspan = 100;
     h = 0.01;
     xRef= [0;0];
     
     InitParam = struct('x0',x0,'tspan',tspan,'h',h,'xRef',xRef);
    
     MPCParam     = symbolicProblem(Model,MPCParam,RLParam,InitParam,0);
-    MPCParam.KKT = symbolicGradiant(MPCParam,reshape(MPCParam.vars(1:nx+nu,1:N+1)',(nx+nu)*(N+1),1));
-    [MPCParam.Jtheta,MPCParam.F] = symbolicGradiant(MPCParam,theta)
+    [a,b] = symbolicGradiant(MPCParam,reshape(MPCParam.vars(1:nx+nu,1:N+1)',(nx+nu)*(N+1),1))
+    MPCParam.KKT = symbolicGradiant(MPCParam,reshape(MPCParam.vars(1:nx+nu,1:N+1)',(nx+nu)*(N+1),1))';
+     symbolicGradiant(MPCParam,theta)
 %%
 fprintf("================NEW SIMULATION================\n")
 fprintf("================NEW SIMULATION================\n")
@@ -57,4 +58,4 @@ out = Simulation(Model,MPCParam,RLParam,InitParam);
 clearvars -except MPCParam InitParam Model RLParam out
 %%
 figure(2)
-Analyze(out.x,out.u,out.t,out,MPCParam,RLParam,Model)
+Analyze(out.x,out.u,out.t,out,MPCParam)

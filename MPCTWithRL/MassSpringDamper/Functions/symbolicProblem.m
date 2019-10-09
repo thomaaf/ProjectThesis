@@ -3,7 +3,7 @@ function MPCParam= symbolicProblem (Model,MPCParam,RLParam,InitParam,type)
 %% if the LQR matrix should be symbolic (0) or not(1)
 %Model
     nx = Model.nx; nu = Model.nu;
-    A  = Model.A ; B  = Model.B; 
+    A  = Model.Asym ; B  = Model.B; 
 %MPC
     N = MPCParam.N; T = MPCParam.T;
 %     if type == 1
