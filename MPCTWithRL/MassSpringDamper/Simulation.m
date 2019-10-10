@@ -34,10 +34,12 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
     Vsn = 0; nablan = zeros(size(RLParam.theta));
     
     theta(1,:) = [reshape(MPCParam.Q',nx*nx,1);...      %Initial values for theta
-                  reshape(Model.A',nx*nx,1)];           
+                  reshape(Model.A',nx*nx,1);...
+                  reshape(Model.E',nx,1)];
+                    
     Q = reshape(theta(1,1:nx*nx),2,2);                    %Not neccesary, but shaping params
-    A = reshape(theta(1,nx*nx+1:end),2,2);                  %From theta, to check for bugs
-    
+    A = reshape(theta(1,nx*nx+1:2*nx*nx),2,2);                  %From theta, to check for bugs
+    E = reshape(theta(1,2*nx*nx+1:2*nx*nx+nx),2,1); 
 %----Misc initialization------
 
     x(1,:) = x0;
@@ -64,7 +66,8 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
             args.p = [x0;xRef;...                    % Set the current values of references and x0 in args.p
                       reshape(Q',4,1);...
                       reshape(Plqr',4,1);...
-                      reshape(A',4,1)];      
+                      reshape(A',4,1);...
+                      reshape(E',2,1)];      
             
             args.x0 = [reshape(X0',nx*(N+1),1); reshape(U0',nu*N,1)];       % Set the search space for next opti in args.x0
             %MPCParam.Q = [theta(1) 0; 0 theta(2)];
@@ -81,7 +84,7 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
             uu  = reshape(full(sol.x(nx*(N+1)+1:end))',nu,N); 
             xx  = reshape(full(sol.x(1:nx*(N+1)) ),nx,N+1);     
             nums = full([xx;[uu,0];reshape(sol.lam_g,2,N+1)]);
-            nablan = numericalGradiant(MPCParam,Model,MPCParam.Jtheta,nums);
+            %nablan = numericalGradiant(MPCParam,Model,MPCParam.Jtheta,nums,Plqr,theta(optCount-1));
             % theta(optCount,:) is the current theta stored
             % Vs is the value of the current state we are in
             % Vsn is the value of the state we arrive at after applying uu(:,1), where
@@ -90,20 +93,24 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
             % applied input, and nabla is the gradient of the Lagrange to
             % the current x0 position
             if optCount>1
+                nablan = numericalGradiant(MPCParam,Model,MPCParam.Jtheta,nums,Plqr,theta(optCount-1,:)');
                 [TD(optCount),theta(optCount,:)] = RLUpdate(theta(optCount-1,:),...
-                    Vs,Vsn,x(optCount-1,:)',u(optCount-1,:)',nabla);
+                    Vs,Vsn,x(optCount-1,:)',u(optCount-1,:)',nabla,MPCParam.R,Q,RLParam);
                 Q = reshape(theta(optCount,1:nx*nx),2,2);
-                A = reshape(theta(optCount,nx*nx+1:end),2,2); 
+                A = reshape(theta(optCount,nx*nx+1:2*nx*nx),2,2);
+                E = reshape(theta(optCount,2*nx*nx+1:2*nx*nx+nx),2,1); 
                 if det(Q)<0.001 || det(A)<0.001
                     break;
                 end
                 theta(optCount,:)
                 (simCount-1)*h
+            else
+                nablan = numericalGradiant(MPCParam,Model,MPCParam.Jtheta,nums,Plqr,theta(optCount,:)');
             end
             
             
             
-%           KKT = numericalGradiant(MPCParam,Model,MPCParam.KKT,nums);
+           KKT = numericalGradiant(MPCParam,Model,MPCParam.KKT,nums,Plqr,theta(optCount,:)');
 %           if KKT > 1e-6
 %           	fprintf("Aborted due to an error in estimated KKT conditions\n");
 %           	fprintf("The Prime conditions should be zero but is : %f",KKT);
@@ -173,7 +180,7 @@ function nlpProb = NLPsetup(Model,MPCParam,RLParam,InitParam)
 % P: nx*2 for init and ref. nx*nx*2 for Q and LQR, nx*nx for A
     X  = casadi.SX.sym('X',nx,N+1); %State/decision variables
     U  = casadi.SX.sym('U',nu,N);   %Input/decision variables
-    P = casadi.SX.sym('P',nx*2 + nx*nx*2 + nx*nx);    %Inital and reference values
+    P = casadi.SX.sym('P',nx*2 + nx*nx*2 + nx*nx + nx);    %Inital and reference values
     DCStageCost = casadi.SX(N,1);   %Vector of Discounted Stagecost 
     LPStageCost = casadi.SX(N,1);   %Vector of Linear, Parametrized Stagecost 
     obj = 0;                        %Objective function -> sum of stageCost
@@ -182,12 +189,13 @@ function nlpProb = NLPsetup(Model,MPCParam,RLParam,InitParam)
     Q = [P(nx*2+1) P(nx*2+2); P(nx*2+3) P(nx*2+4)];
     Plqr = [P(nx*2+5) P(nx*2+6); P(nx*2+7) P(nx*2+8)];
     A = [P(nx*2+9) P(nx*2+10); P(nx*2+11) P(nx*2+12)];
+    E = [P(nx*2+13);P(nx*2+14)];
 %----------Setup of NLP--------------    
 %Calculation of stagecost, Objective function, and constraints
     % Sum from k = 0:N-1 <-> k = 1:N
     g2(1:nx) = X(:,1) - P(1:nx);
     for k = 1:N
-        g2(k*nx+1:(k+1)*nx) = X(:,k+1) - ((eye(nx) + T/N*A)*X(:,k) + T/N*B*U(:,k) );        
+        g2(k*nx+1:(k+1)*nx) = X(:,k+1) - ((eye(nx) + T/N*A)*X(:,k) + T/N*(B*U(:,k) + E));        
         DCStageCost(k) =0.5 * gamma^(k-1) * (X(:,k)'*Q*X(:,k) + U(:,k)'*R*U(:,k));
         LPStageCost(k) = f'*[X(:,k);U(:,k)];
         obj = obj + DCStageCost(k) + LPStageCost(k);

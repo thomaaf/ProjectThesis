@@ -10,11 +10,13 @@
 %Model parameters
 %   states,inputs,time,prediction
 	syms a1 a2 a3 a4 real
+    syms e1 e2 real
     nx = 2; nu = 1;
     
     A = [0 1; -1 -1];       Asym = [a1 a2;a3 a4];
     B = [0;1];       
-    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B);
+    E = [0;0];              Esym = [e1;e2];
+    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'E',E,'Esym',Esym);
 
 %MPC parameters
     N = 5; T = 1; 
@@ -34,21 +36,22 @@
 %RL Parameters
     syms V0 real
     gamma = 0.9;
-    theta = [q1;q2;q3;q4;a1;a2;a3;a4];
-    RLParam = struct('gamma',gamma,'theta',theta);
+    theta = [q1;q2;q3;q4;a1;a2;a3;a4;e1;e2];
+    alfa = 0.001;
+    RLParam = struct('gamma',gamma,'theta',theta,'alfa',alfa);
     
 %initial conditions and durations
     
     x0 = [1;0];
-    tspan = 10000;
+    tspan = 1000;
     h = 0.01;
     xRef= [0;0];
     
     InitParam = struct('x0',x0,'tspan',tspan,'h',h,'xRef',xRef);
    
     MPCParam     = symbolicProblem(Model,MPCParam,RLParam,InitParam,0);
-    MPCParam.KKT = symbolicGradiant(MPCParam,reshape(MPCParam.vars(1:nx+nu,1:N+1)',(nx+nu)*(N+1),1));
-    [MPCParam.Jtheta,MPCParam.F] = symbolicGradiant(MPCParam,theta)
+    MPCParam.KKT = symbolicGradiant(MPCParam,MPCParam.vars(1:(N+1)*nx+N*nu,1));
+   [MPCParam.Jtheta,MPCParam.F] = symbolicGradiant(MPCParam,theta);
 %%
 fprintf("================NEW SIMULATION================\n")
 fprintf("================NEW SIMULATION================\n")
@@ -56,5 +59,4 @@ fprintf("================NEW SIMULATION================\n")
 out = Simulation(Model,MPCParam,RLParam,InitParam);
 clearvars -except MPCParam InitParam Model RLParam out
 %%
-figure(2)
 Analyze(out.x,out.u,out.t,out,MPCParam,RLParam,Model)
