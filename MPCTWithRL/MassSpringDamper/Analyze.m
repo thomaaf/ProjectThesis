@@ -7,7 +7,7 @@ function Analyze(x,u,t,out,MPCParam,RLParam,Model)
     figtitle = sprintf("Alpha = %-6.6g, gamma = %-6.6g, tspan = %i",RLParam.alfa,RLParam.gamma,max(t(:)));
     figtit = uicontrol(pos,'Style','text','String',figtitle,'Units','normalized',...
        'Position',[.28 .95 .42 .05],'FontSize',13,'FontWeight','Bold');  
-   c = uicontrol(pos,'Style','slider','Position',[2 2 100 20],'Callback',@sliderUpdate);
+   %c = uicontrol(pos,'Style','slider','Position',[2 2 100 20],'Callback',@sliderUpdate);
 %% System    
 
     subplot(row,col,1);

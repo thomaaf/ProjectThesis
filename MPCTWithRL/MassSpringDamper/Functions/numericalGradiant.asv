@@ -1,4 +1,4 @@
-function Jnum = numericalGradiant(MPCParam,func,nums,Plqr,theta)
+function Jnum = numericalGradiant(MPCParam,Model,Gradiant,nums,Plqr,theta)
 %% numericalGradiant(MPCParam,Model,Gradiant,nums)
 %% MPCParam for parameters. Gradient for the symbolic equation. Nums for numerical values
 %% All symbolic variables must be in MPCParam.
@@ -15,7 +15,7 @@ function Jnum = numericalGradiant(MPCParam,func,nums,Plqr,theta)
            
     nums = [optNums;MPCnums;thetaNums];
     
-    fstring = sprintf('MPCParam.%s(',func);
+    fstring = sprintf('MPCParam.F(');
     for i = 1:size(nums,1)
        fstring = sprintf('%s%.14e,',fstring,nums(i));
     end

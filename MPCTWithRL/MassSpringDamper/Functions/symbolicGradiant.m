@@ -16,5 +16,5 @@ function [Jsym,Func] = symbolicGradiant(MPCParam,theta)
 %                reshape(MPCParam.Psym,size(MPCParam.Psym,1)*size(MPCParam.Psym,2),1)];
 %     vars = [vars;MPCvars];           
     Func = symfun(Jsym,MPCParam.vars);
-    Func = matlabFunction(Func);
+   Func = matlabFunction(Func);
 end

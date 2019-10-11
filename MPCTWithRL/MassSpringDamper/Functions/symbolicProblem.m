@@ -38,7 +38,7 @@ function MPCParam= symbolicProblem (Model,MPCParam,RLParam,InitParam,type)
 %% Calculation of symbolic lagrangian
 
     for k = 1:N % Sum of cost, from 0 to N-1
-        constraints((k-1)*nx+1:k*nx) = x(:,k) +  T/N*(A*x(:,k) + B*u(:,k) + E) - x(:,k+1);
+        constraints((k-1)*nx+1:k*nx) = -x(:,k+1) + ((eye(nx) + T/N*A)*x(:,k) + T/N*(B*u(:,k) + E)) ;
         DCStageCost(k) = 0.5 * gamma^(k-1) * (x(:,k)'*Q*x(:,k) + u(:,k)'*R*u(:,k));
         LPStageCost(k) = f'*[x(:,k);u(:,k)];
         obj = obj + DCStageCost(k) + LPStageCost(k);
@@ -47,7 +47,7 @@ function MPCParam= symbolicProblem (Model,MPCParam,RLParam,InitParam,type)
     end
     TMStageCost = 0.5*gamma^(k+1)*(x(:,k+1)'*Plqr*x(:,k+1));
     obj = obj + TMStageCost;
-    constraints = [x0 - x(:,1);constraints];
+    constraints = [-x(:,1) + x0 ;constraints];
     L = obj - chi'*constraints;
 %% Print
     fprintf("Short form\n")
@@ -56,18 +56,18 @@ function MPCParam= symbolicProblem (Model,MPCParam,RLParam,InitParam,type)
     fprintf("Long form\n")
     fprintf("Discounted Stagecost: \n");disp(DCStageCost);          MPCParam.DCStageCost = DCStageCost; 
     fprintf("Linear Stagecost: \n");    disp(LPStageCost);          MPCParam.LPStageCost = LPStageCost;
-    fprintf("Terminal Stagecost: \n");      disp(TMStageCost);           MPCParam.TMStageCost = TMStageCost;
+    fprintf("Terminal Stagecost: \n");  disp(TMStageCost);          MPCParam.TMStageCost = TMStageCost;
     fprintf("Constraints : \n");        disp(constraints);          MPCParam.constraints = constraints;
     fprintf("Objective function: \n");  disp(children(obj)');       MPCParam.obj = children(obj)';
     fprintf("Lagrangian; \n");          disp(children(L)');         MPCParam.L = children(L)';
     
     optVars = reshape(vars',size(vars,1)*size(vars,2),1);
     MPCVars=[%reshape(MPCParam.Qsym,size(MPCParam.Qsym,1)*size(MPCParam.Qsym,2),1);
-                    reshape(MPCParam.Rsym,size(MPCParam.Rsym,1)*size(MPCParam.Rsym,2),1);
+                    reshape(MPCParam.Rsym',size(MPCParam.Rsym,1)*size(MPCParam.Rsym,2),1);
                     reshape(MPCParam.fsym,size(MPCParam.fsym,1)*size(MPCParam.fsym,2),1);
-                    reshape(MPCParam.Psym,size(MPCParam.Psym,1)*size(MPCParam.Psym,2),1);];
+                    reshape(MPCParam.Psym',size(MPCParam.Psym,1)*size(MPCParam.Psym,2),1);];
     thetaVars = RLParam.theta;
-	MPCParam.vars = [optVars; MPCVars; thetaVars ]
+	MPCParam.vars = [optVars; MPCVars; thetaVars];
 end
 
 

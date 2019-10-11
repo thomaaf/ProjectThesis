@@ -43,14 +43,14 @@
 %initial conditions and durations
     
     x0 = [1;0];
-    tspan = 1000;
+    tspan = 3000;
     h = 0.01;
     xRef= [0;0];
     
     InitParam = struct('x0',x0,'tspan',tspan,'h',h,'xRef',xRef);
    
     MPCParam     = symbolicProblem(Model,MPCParam,RLParam,InitParam,0);
-    MPCParam.KKT = symbolicGradiant(MPCParam,MPCParam.vars(1:(N+1)*nx+N*nu,1));
+   [MPCParam.KKT, MPCParam.KKTF ]= symbolicGradiant(MPCParam,MPCParam.vars(1:(N+1)*nx+N*nu,1));
    [MPCParam.Jtheta,MPCParam.F] = symbolicGradiant(MPCParam,theta);
 %%
 fprintf("================NEW SIMULATION================\n")
