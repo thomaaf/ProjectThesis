@@ -1,0 +1,7 @@
+function printState(theta  ,t,x,timelabel,statelabel,Parameternumlabel,TD,u)
+         printState(theta_s,(simcount-T/N/h)*h,s,timelabel,statelabel,Parameternumlabel,TDs,a)
+    timelabel.Text = sprintf("Simulation time: % -3.3f \t Temporal error: % -3.3f \t det(Q) = % -3.3f ",t,TD,det(Q));
+    statelabel.Text = sprintf("Current State  : % -4.2f % -4.2f \t Current Input: % -4.2f \t det(A) = % -3.2f", x,u,det(A));
+    Parameternumlabel.Text = sprintf( ['Parameters Val : ' repmat('% -6.4f  |', 1, size(theta,2)) '\n'], theta');
+
+end

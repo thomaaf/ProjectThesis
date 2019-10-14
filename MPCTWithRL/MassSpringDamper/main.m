@@ -19,7 +19,7 @@
     Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'E',E,'Esym',Esym);
 
 %MPC parameters
-    N = 5; T = 1; 
+    N = 10; T = 2; 
     syms q1 q2 q3 q4 real
     syms r1          real
     syms f1 f2 f3    real
@@ -43,7 +43,7 @@
 %initial conditions and durations
     
     x0 = [1;0];
-    tspan = 3000;
+    tspan = 600;
     h = 0.01;
     xRef= [0;0];
     

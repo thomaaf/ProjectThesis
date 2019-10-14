@@ -5,7 +5,7 @@ function [TD, theta] = RLUpdate(theta,Vs,Vsn,x,u,nabla,RLParam)
     gamma = RLParam.gamma; alfa = RLParam.alfa;
     L = x'*Q*x + u'*R*u;
     TD = L + gamma*Vsn - Vs;          %R + y*V(sn) - Q(s,a)
-	theta = (theta + alfa*TD*nabla);  
+	theta = (theta' + alfa*TD*nabla)';  
     
 end
 
