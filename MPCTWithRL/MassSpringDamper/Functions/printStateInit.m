@@ -1,6 +1,6 @@
 function [timelabel,statelabel,Parameterlabel,Parameternumlabel]= printStateInit(theta,t,x,RLParam)
     delete(findall(0,'Name','progress'))
-    fig = uifigure('Name', 'progress','Position',[680 866 619 112]);
+    fig = uifigure('Name', 'progress','Position',[680 866 1019 112]);
     
     g = uigridlayout(fig,[4 1]);
     timelabel = uilabel(g,'text',sprintf("Simulation time: % -3.3f\n",t));

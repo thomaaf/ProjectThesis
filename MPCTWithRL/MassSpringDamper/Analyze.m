@@ -34,7 +34,7 @@ function Analyze(x,u,t,out,MPCParam,RLParam,Model)
     
     subplot(row,col,2) 
     plot(t(1:size(x,1),1),u,'Tag','Input'); grid on; hold on;
-    plot(t(1:size(x,1)-1,1),inpEMA*5,'Tag','Input'); 
+    %plot(t(1:size(x,1)-1,1),inpEMA*5,'Tag','Input'); 
     title('Input'); xlabel('Time [s]'); ylabel('Force [N]')
     %axis([0 max(t) min(u(:,1))-2 max(u(:,1))+2]);
     axis([0 max(t) min(-10)-1 max(10)+1]);    
@@ -53,7 +53,7 @@ function Analyze(x,u,t,out,MPCParam,RLParam,Model)
     end    
     subplot(row,col,3)
     plot(t(1:size(x,1),1),out.TD,'Tag','TD'); grid on; hold on;
-    plot(t(1:size(x,1)-1,1),inpEMA*5,'Tag','TD'); 
+    %plot(t(1:size(x,1)-1,1),inpEMA*5,'Tag','TD'); 
     title('Temporal Error'); xlabel('Time [s]'); 
     %axis([0 max(t) min(out.TD(:,1))-1 max(out.TD(:,1))+1]);    
     axis([0 max(t) min(-10)-1 max(10)+1]);    

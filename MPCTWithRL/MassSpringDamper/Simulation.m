@@ -27,11 +27,12 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
     V       = zeros(tspan/h,1); 
     nabla   = zeros(tspan/h,size(RLParam.theta,1));      
     TD      = zeros(tspan/h,1);                     %Vector of the Temporal differences
-    theta   = zeros(tspan/h,size(RLParam.theta,1)); %Matrix of theta variables 
+    theta   = zeros(tspan/h,MPCParam.nSym-nx^2); %Matrix of theta variables 
     xopt    = zeros(tspan/h*nx,N+1);                %Matrix of all optimal trajetories at each optitime t
     uopt    = zeros(tspan/h*nu,N);                  %Matrix of all optimal inputs at each optitime t      
-
-    
+    numsopt = zeros(tspan/h*nx,size(MPCParam.vars,1));
+    L       = zeros(tspan/h,1);
+    delta   = zeros(tspan/h,1);
 
 
 %----Misc initialization------
@@ -45,18 +46,23 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
     
     
 %-----Calculations of initial values-----------    
+% theta = [Q,A,R,B,E,F]
     theta_s = [reshape(MPCParam.Q',nx*nx,1);...  %Initial values for theta
                   reshape(Model.A',nx*nx,1);...
-                  reshape(Model.E',nx,1)];                    
+                  reshape(MPCParam.R',nu*nu,1);...
+                  reshape(Model.B',nx*nu,1);...
+                  reshape(Model.E',nx,1);...
+                  reshape(MPCParam.f',nx+nu,1)];                    
     
     s = x0;
     [Plqr, nums,Vs,a] = solveOpt(solver,args,MPCParam,Model,theta_s,s,xRef);    
-    nabla_s = numericalGradiant(MPCParam,"F",nums,Plqr,theta_s);
-    TDs = 0; TDn = 0;
+    [nabla_s,nums] = numericalGradiant(MPCParam,"F",nums,Plqr,theta_s);
+    TDs = 0; TDn = 0; Ls = 0; Lsn = 0; deltas = 0; deltasn = 0;
     Vsn = Vs;
     an = a; 
     theta_n = theta_s;
     nabla_n = nabla_s;
+    
 %Start of simulation   
 %(norm((x0-xRef),2) > 1e-3 &&
     while simcount<tspan/h
@@ -67,29 +73,32 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
             
             [Plqr, nums,Vsn,an] = solveOpt(solver,args,MPCParam,Model,theta_s,sn,xRef);
             
-            KKT = numericalGradiant(MPCParam,"KKTF",nums,Plqr,theta_s);
+            [KKT,~] = numericalGradiant(MPCParam,"KKTF",nums,Plqr,theta_s);
             
-            nabla_n = numericalGradiant(MPCParam,"F",nums,Plqr,theta_s);
+            [nabla_n,nums] = numericalGradiant(MPCParam,"F",nums,Plqr,theta_s);
             
-            [TDn,theta_n] = RLUpdate(theta_s,Vs,Vsn,s,a,nabla_s,RLParam);
+            [TDn,theta_n,Lsn,deltasn] = RLUpdate(theta_s,Vs,Vsn,s,a,nabla_s,RLParam);
             
             printState(theta_s,(simcount-T/N/h)*h,s,timelabel,statelabel,Parameternumlabel,TDs,a)
             if FeasabilityCheck(KKT,opts.ipopt.acceptable_tol,theta_s)
                 break;
             end
             inputTime = inputTime + T/N; 
-            args.X0 = nums(1:nx,1:N+1);   
-            args.U0 = nums(nx+1:nx+nu,1:N);          
+            args.X0 = nums(1:nx*(N+1));   
+            args.U0 = nums(nx*(N+1)+1:nx*(N+1) + nu*(N));          
         end      
-        
+        numsopt(simcount,:) = nums';
         x(simcount,:)       = s';
         u(simcount,:)       = a';
         V(simcount,:)       = Vs;
         nabla(simcount,:)   = nabla_s';
         TD(simcount,:)      = TDs;
         theta(simcount,:)   = theta_s';
-        xopt((simcount-1)*nx + 1:(simcount-1)*nx +nx ,1:N+1) = nums(1:nx,1:N+1);
-        uopt((simcount-1)*nu + 1:(simcount-1)*nu +nu ,1:N) = nums(nx+1:nx+nu,1:N);     
+        xopt((simcount-1)*nx + 1:(simcount-1)*nx +nx ,1:N+1) = reshape(nums(1:nx*(N+1)),N+1,nx)';
+        uopt((simcount-1)*nu + 1:(simcount-1)*nu +nu ,1:N)   = reshape(nums(nx*(N+1)+1:nx*(N+1) + nu*(N)),N,nu)';
+        L(simcount,:)       = Ls;
+        delta(simcount,:)   = deltas;
+        
         
         s = sn;
         a = an;
@@ -97,7 +106,8 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
         TDs = TDn;
         theta_s = theta_n;
         nabla_s = nabla_n;
-        
+        Ls = Lsn;
+        deltas = deltasn;
         simcount = simcount + 1;
     end
     
@@ -119,7 +129,8 @@ function out = Simulation(Model,MPCParam,RLParam,InitParam)
     t2 = (0:h:(simcount)*h + T)';
     out = struct('x',x(1:simcount,:),'u',u(1:simcount,:),'t',t2,'xopt',xOptNew,'uopt',uOptNew...
         ,'theta',theta(1:simcount,:),'V',V(1:simcount,:),'nabla',nabla(1:simcount,:)...
-        ,'TD',TD(1:simcount),'simcount',simcount);
+        ,'TD',TD(1:simcount),'simcount',simcount,'numsopt',numsopt(1:simcount,:)...
+        ,'L',L(1:simcount,:),'delta',delta(1:simcount,:));
     
 
 end
@@ -140,16 +151,15 @@ function flag = FeasabilityCheck(KKT,acceptable_tol,theta)
 end
 
 function [Plqr, nums,Vs,a] = solveOpt(solver,args,MPCParam,Model,theta,s,xRef)
+% P = [Plqr,Q,A,R,B,E,F,X0,Xref]
     nx = Model.nx; nu = Model.nu; N = MPCParam.N; 
-    A = [theta(5:6)';theta(7:8)'];
-    Q = [theta(1:2)';theta(3:4)'];
-    [~,Plqr,~] = lqr(A,Model.B,Q,MPCParam.R,[]);
-
-    args.p = [s;xRef;...                    %update parameters in the NLP
-              theta(1:4);...
-              reshape(Plqr',4,1);...
-              theta(5:8);...
-              theta(9:10)];      
+    Q    = reshape(theta(0*nx*nx + 0*nu*nu + 0*nx + 1 : 1*nx*nx + 0*nu*nu),nx,nx)';
+    A    = reshape(theta(1*nx*nx + 0*nu*nu + 0*nx + 1 : 2*nx*nx + 0*nu*nu),nx,nx)';
+    R    = reshape(theta(2*nx*nx + 0*nu*nu + 0*nx + 1 : 2*nx*nx + 1*nu*nu),nu,nu)';
+    B    = reshape(theta(2*nx*nx + 1*nu*nu + 0*nx + 1 : 2*nx*nx + 1*nu*nu + 1*nx*nu),nu,nx)';
+    [~,Plqr,~] = lqr(A,B,Q,R,[]);
+    Plqr = reshape(Plqr',nx*nx,1);
+    args.p = [Plqr;theta;s;xRef];   
     args.x0 = [reshape(args.X0',nx*(N+1),1); reshape(args.U0',nu*N,1)];       % Set the search space for next opti in args.x0
 %---------------solve next optimization-----------------------------------            
     sol = solver('x0',args.x0, 'lbx',args.lbx,'ubx',args.ubx,'lbg',args.lbg,'ubg',args.ubg,'p',args.p);
@@ -165,11 +175,8 @@ function nlpProb = NLPsetup(Model,MPCParam,RLParam,InitParam)
 % readability
 %Model
     nx = Model.nx; nu = Model.nu;
-    A  = Model.A ; B  = Model.B; 
 %MPC
     N = MPCParam.N; T = MPCParam.T;
-    Q = MPCParam.Q; R = MPCParam.R; 
-    f = MPCParam.f;
 %RL
     gamma = RLParam.gamma;
     
@@ -182,24 +189,30 @@ function nlpProb = NLPsetup(Model,MPCParam,RLParam,InitParam)
 % P: nx*2 for init and ref. nx*nx*2 for Q and LQR, nx*nx for A
     X  = casadi.SX.sym('X',nx,N+1); %State/decision variables
     U  = casadi.SX.sym('U',nu,N);   %Input/decision variables
-    P = casadi.SX.sym('P',nx*2 + nx*nx*2 + nx*nx + nx);    %Inital and reference values
+    P = casadi.SX.sym('P',MPCParam.nSym + nx*2);    %Inital and reference values
     DCStageCost = casadi.SX(N,1);   %Vector of Discounted Stagecost 
     LPStageCost = casadi.SX(N,1);   %Vector of Linear, Parametrized Stagecost 
     obj = 0;                        %Objective function -> sum of stageCost
     g2 = casadi.SX(nx*N+nx,1);      %Vector of equality constraints
 %----------Defining the RL-parameters--------------   
-    Q = [P(nx*2+1) P(nx*2+2); P(nx*2+3) P(nx*2+4)];
-    Plqr = [P(nx*2+5) P(nx*2+6); P(nx*2+7) P(nx*2+8)];
-    A = [P(nx*2+9) P(nx*2+10); P(nx*2+11) P(nx*2+12)];
-    E = [P(nx*2+13);P(nx*2+14)];
+    Plqr = reshape(P(0*nx*nx + 0*nu*nu + 0*nx + 1 : 1*nx*nx + 0*nu*nu),nx,nx)';
+    Q    = reshape(P(1*nx*nx + 0*nu*nu + 0*nx + 1 : 2*nx*nx + 0*nu*nu),nx,nx)';
+    A    = reshape(P(2*nx*nx + 0*nu*nu + 0*nx + 1 : 3*nx*nx + 0*nu*nu),nx,nx)';
+    R    = reshape(P(3*nx*nx + 0*nu*nu + 0*nx + 1 : 3*nx*nx + 1*nu*nu),nu,nu)';
+    B    = reshape(P(3*nx*nx + 1*nu*nu + 0*nx + 1 : 3*nx*nx + 1*nu*nu + 1*nx*nu),nu,nx)';
+    E    = reshape(P(3*nx*nx + 1*nu*nu + 1*nx*nu + 1 : 3*nx*nx + 1*nu*nu + 1*nx*nu + nx),1,nx)';
+    F    = reshape(P(3*nx*nx + 1*nu*nu + 1*nx*nu + nx + + 0*nu + 1 : 3*nx*nx + 1*nu*nu + 1*nx*nu + 2*nx + nu),1,nx + nu)';
+    X0   = reshape(P(3*nx*nx + 1*nu*nu + 1*nx*nu + 2*nx + 1*nu + 1 : 3*nx*nx + 1*nu*nu + 1*nx*nu + 3*nx + nu),1,nx)';
+    XRef   = reshape(P(3*nx*nx + 1*nu*nu + 1*nx*nu + 3*nx + 1*nu + 1 : 3*nx*nx + 1*nu*nu + 1*nx*nu + 4*nx + nu),1,nx)';
+    
 %----------Setup of NLP--------------    
 %Calculation of stagecost, Objective function, and constraints
     % Sum from k = 0:N-1 <-> k = 1:N
-    g2(1:nx) = X(:,1) - P(1:nx);
+    g2(1:nx) = X(:,1) - X0;
     for k = 1:N
         g2(k*nx+1:(k+1)*nx) = X(:,k+1) - ((eye(nx) + T/N*A)*X(:,k) + T/N*(B*U(:,k) + E));        
         DCStageCost(k) =0.5 * gamma^(k-1) * (X(:,k)'*Q*X(:,k) + U(:,k)'*R*U(:,k));
-        LPStageCost(k) = f'*[X(:,k);U(:,k)];
+        LPStageCost(k) = F'*[X(:,k);U(:,k)];
         obj = obj + DCStageCost(k) + LPStageCost(k);
         
     end

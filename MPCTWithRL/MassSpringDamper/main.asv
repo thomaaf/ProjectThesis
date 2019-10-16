@@ -17,7 +17,7 @@
     A = [0 1; -1 -1];       Asym = [a1 a2;a3 a4];
     B = [0;1];              Bsym = [b1;b2];
     E = [0;0];              Esym = [e1;e2];
-    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'Bsym',Bsym,'E',E,'Esym',Esym);
+    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'E',E,'Esym',Esym);
 
 %MPC parameters
     N = 5; T = 1; 
@@ -37,13 +37,11 @@
         ,Ulb,'Uub',Uub,'nSym',nSym);
     
 %RL Parameters
-% theta = [Q,A,R,B,E,F]
     syms V0 real
-    gamma = 0.9;
-    theta = [q1;q2;q3;q4;a1;a2;a3;a4;r1;b1;b2;e1;e2;f1;f2;f3];
-    learn = [ 1; 1; 1; 1; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0];
-    alfa = 0.01;
-    RLParam = struct('gamma',gamma,'theta',theta,'alfa',alfa,'learn',learn);
+    gamma = 0.99;
+    theta = [q1;q2;q3;q4;a1;a2;a3;a4;e1;e2];
+    alfa = 0.001;
+    RLParam = struct('gamma',gamma,'theta',theta,'alfa',alfa);
     
 %initial conditions and durations
     
@@ -85,27 +83,18 @@ Analyze(out.x,out.u,out.t,out,MPCParam,RLParam,Model)
 % yyaxis right
 % plot(out.TD(1:20:end-1))
 %%
-%theta = [Q,A,R,B,E,F]
 bound = 50;
 tbound = 101 + bound;
 figure(2)
-subplot(5,2,1)
-plot(out.t(1:end-tbound), out.theta(1:end-bound,1:4)); title("Q"); grid on; legend(string(RLParam.theta(1:4)))
-subplot(5,2,2)
-plot(out.t(1:end-tbound), out.nabla(1:end-bound,1:4)); title("Nabla Q"); grid on;legend(string(RLParam.theta(1:4)));
-subplot(5,2,3)
-plot(out.t(1:end-tbound), out.theta(1:end-bound,5:8)); title("A"); grid on; legend(string(RLParam.theta(5:8)));
-subplot(5,2,4)
-plot(out.t(1:end-tbound), out.nabla(1:end-bound,5:8)); title("Nabla A"); grid on; legend(string(RLParam.theta(5:8)));
-subplot(5,2,5)
-plot(out.t(1:end-tbound), out.theta(1:end-bound,9:11)); title("R & B"); grid on; legend(string(RLParam.theta(9:11)));
-subplot(5,2,6)
-plot(out.t(1:end-tbound), out.nabla(1:end-bound,9:11)); title("Nabla R & B"); grid on; legend(string(RLParam.theta(9:11)));
-subplot(5,2,7)
-plot(out.t(1:end-tbound), out.theta(1:end-bound,12:13)); title("E"); grid on; legend(string(RLParam.theta(12:13)));
-subplot(5,2,8)
-plot(out.t(1:end-tbound), out.nabla(1:end-bound,12:13)); title("Nabla E"); grid on; legend(string(RLParam.theta(12:13)));
-subplot(5,2,9)
-plot(out.t(1:end-tbound), out.theta(1:end-bound,14:16)); title("F"); grid on; legend(string(RLParam.theta(14:16)));
-subplot(5,2,10)
-plot(out.t(1:end-tbound), out.nabla(1:end-bound,14:16)); title("Nabla F"); grid on; legend(string(RLParam.theta(14:16)));
+subplot(3,2,1)
+plot(out.t(1:end-tbound), out.theta(1:end-bound,1:4)); title("Theta 1:4"); grid on
+subplot(3,2,2)
+plot(out.t(1:end-tbound), out.nabla(1:end-bound,1:4)); title("Nabla 1:4"); grid on;
+subplot(3,2,3)
+plot(out.t(1:end-tbound), out.theta(1:end-bound,5:8)); title("Theta 5:8"); grid on
+subplot(3,2,4)
+plot(out.t(1:end-tbound), out.nabla(1:end-bound,5:8)); title("Nabla 5:8"); grid on;
+subplot(3,2,5)
+plot(out.t(1:end-tbound), out.theta(1:end-bound,9:10)); title("Theta 9:10"); grid on;
+subplot(3,2,6)
+plot(out.t(1:end-tbound), out.nabla(1:end-bound,9:10)); title("Nabla 9:10"); grid on;
