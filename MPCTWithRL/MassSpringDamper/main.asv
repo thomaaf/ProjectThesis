@@ -17,7 +17,7 @@
     A = [0 1; -1 -1];       Asym = [a1 a2;a3 a4];
     B = [0;1];              Bsym = [b1;b2];
     E = [0;0];              Esym = [e1;e2];
-    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'E',E,'Esym',Esym);
+    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'Bsym',Bsym,'E',E,'Esym',Esym);
 
 %MPC parameters
     N = 5; T = 1; 
@@ -25,11 +25,11 @@
     syms r1          real
     syms f1 f2 f3    real
     syms p1 p2 p3 p4 real
-    Q = [1,0;0,1];          Qsym = [q1 q2;q3 q4];
+    Q = [10,0;0,1];          Qsym = [q1 q2;q3 q4];
     R = 0.1;                Rsym = r1;
     f = [0;0;0];            fsym = [f1;f2;f3];
     P = [0 0;0 0];          Psym = [p1 p2;p3 p4];
-    nSym = 3*nx^2 + nu^2 + nx*nu + 2*nx + nu
+    nSym = 3*nx^2 + nu^2 + nx*nu + 2*nx + nu;
     Xlb = []; Xub = [];
     Ulb = []; Uub = [];
     MPCParam = struct('N',N,'T',T,'Q',Q,'Qsym',Qsym,'R',R,'Rsym',Rsym...
@@ -37,16 +37,18 @@
         ,Ulb,'Uub',Uub,'nSym',nSym);
     
 %RL Parameters
+% theta = [Q,A,R,B,E,F]
     syms V0 real
-    gamma = 0.99;
-    theta = [q1;q2;q3;q4;a1;a2;a3;a4;e1;e2];
-    alfa = 0.001;
-    RLParam = struct('gamma',gamma,'theta',theta,'alfa',alfa);
+    gamma = 0.9;
+    theta = [q1;q2;q3;q4;a1;a2;a3;a4;r1;b1;b2;e1;e2;f1;f2;f3];
+    learn = [ 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1];
+    alfa = 0.00001;
+    RLParam = struct('gamma',gamma,'theta',theta,'alfa',alfa,'learn',learn);
     
 %initial conditions and durations
     
     x0 = [1;0];
-    tspan = 600;
+    tspan = 2000;
     h = 0.01;
     xRef= [0;0];
     
@@ -64,37 +66,60 @@ clearvars -except MPCParam InitParam Model RLParam out
 %%
 Analyze(out.x,out.u,out.t,out,MPCParam,RLParam,Model)
 %%
-% evalTime = 20;
-% Jnum = zeros(floor(size(out.TD,1)/20),1);
-% Func = symfun(sum(MPCParam.obj),MPCParam.vars);
-% Func = matlabFunction(Func);
-% fstring = sprintf('Func(');
-% for i = 1:size(out.numsopt,2)
-%    fstring = sprintf('%s %s%i%s',fstring,"out.numsopt(t,",i,"),");
-% end
-% fstring = fstring(1:end-1); fstring = sprintf('%s)',fstring);
-% for i = 1:size(Jnum,1)
-%     t = (i-1)*20 + 1;
-%     Jnum(i) = eval(fstring);
-% end
+evalTime = 20;
+Jnum = zeros(20,1);
+Func = symfun(sum(MPCParam.obj),MPCParam.vars);
+Func = matlabFunction(Func);
+fstring = sprintf('Func(');
+for i = 1:size(out.numsopt,2)
+   fstring = sprintf('%s %s%i%s',fstring,"out.numsopt(t,",i,"),");
+end
+fstring = fstring(1:end-1); fstring = sprintf('%s)',fstring);
+for i = 1:size(Jnum,1)
+    t = (i-1)*20 + 1;
+    Jnum(i) = eval(fstring);
+end
 % figure(3)
 % clf(3)
 % plot(RLParam.gamma*out.V(21:20:end) - out.V(1:20:end-19))
 % yyaxis right
 % plot(out.TD(1:20:end-1))
+
 %%
-bound = 50;
+%theta = [Q,A,R,B,E,F]
+bound = 100;
 tbound = 101 + bound;
+start = 1;
+type = '';
 figure(2)
-subplot(3,2,1)
-plot(out.t(1:end-tbound), out.theta(1:end-bound,1:4)); title("Theta 1:4"); grid on
-subplot(3,2,2)
-plot(out.t(1:end-tbound), out.nabla(1:end-bound,1:4)); title("Nabla 1:4"); grid on;
-subplot(3,2,3)
-plot(out.t(1:end-tbound), out.theta(1:end-bound,5:8)); title("Theta 5:8"); grid on
-subplot(3,2,4)
-plot(out.t(1:end-tbound), out.nabla(1:end-bound,5:8)); title("Nabla 5:8"); grid on;
-subplot(3,2,5)
-plot(out.t(1:end-tbound), out.theta(1:end-bound,9:10)); title("Theta 9:10"); grid on;
-subplot(3,2,6)
-plot(out.t(1:end-tbound), out.nabla(1:end-bound,9:10)); title("Nabla 9:10"); grid on;
+clf(2)
+subplot(5,2,1)
+out.t(1:end-tbound)
+plot(  out.theta(start:end-bound,1:4),type); title("Q"); grid on; legend(string(RLParam.theta(1:4))); hold on;
+subplot(5,2,2)
+plot(  out.nabla(start:end-bound,1:4),type); title("Nabla Q"); grid on;legend(string(RLParam.theta(1:4))); hold on;
+subplot(5,2,3)
+plot(  out.theta(start:end-bound,5:8),type); title("A"); grid on; legend(string(RLParam.theta(5:8))); hold on;
+subplot(5,2,4)
+plot(  out.nabla(start:end-bound,5:8),type); title("Nabla A"); grid on; legend(string(RLParam.theta(5:8))); hold on;
+subplot(5,2,5)
+plot(  out.theta(start:end-bound,9:11),type); title("R & B"); grid on; legend(string(RLParam.theta(9:11))); hold on;
+subplot(5,2,6)
+plot(  out.nabla(start:end-bound,9:11)),type; title("Nabla R & B"); grid on; legend(string(RLParam.theta(9:11))); hold on;
+subplot(5,2,7)
+plot(  out.theta(start:end-bound,12:13),type); title("E"); grid on; legend(string(RLParam.theta(12:13))); hold on;
+subplot(5,2,8)
+plot(  out.nabla(start:end-bound,12:13),type); title("Nabla E"); grid on; legend(string(RLParam.theta(12:13))); hold on;
+subplot(5,2,9)
+plot(  out.theta(start:end-bound,14:16),type); title("F"); grid on; legend(string(RLParam.theta(14:16))); hold on;
+subplot(5,2,10)
+plot(  out.nabla(start:end-bound,14:16),type); title("Nabla F"); grid on; legend(string(RLParam.theta(14:16))); hold on;
+%%
+figure(5)
+clf(5)
+plot(out.V(start:end-bound,:),type); title("V"); grid on;  hold on;
+plot(out.L(start:end-bound,:),type); title("V"); grid on;  hold on;
+yyaxis right
+plot(out.x(start:end-bound,1),type); title("V"); grid on;  
+line ([3335 3336],[-1 1])
+legend(["V","L","x"])

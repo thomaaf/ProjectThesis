@@ -1,0 +1,2 @@
+Results with tspan = 2000, alfa = 0.00001, gamma = 0.9, learning all parameters
+E init as [0;1], Rl Q at eye(10,0). LQR = 0
