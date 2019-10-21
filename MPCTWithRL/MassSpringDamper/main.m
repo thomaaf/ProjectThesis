@@ -14,8 +14,8 @@
     syms b1 b2 real
     nx = 2; nu = 1;
     
-    A = [1 1; -1 -1];       Asym = [a1 a2;a3 a4];
-    B = [1;1];              Bsym = [b1;b2];
+    A = [0 0.1; -1 -1];       Asym = [a1 a2;a3 a4];
+    B = [0;1];              Bsym = [b1;b2];
     E = [0;0];              Esym = [e1;e2];
     Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'Bsym',Bsym,'E',E,'Esym',Esym);
 
@@ -41,19 +41,19 @@
 %RL Parameters
 % theta = [Q,A,R,B,E,F]
 
-    gamma = 0.9;
+    gamma = 0.99;
     theta = [q1;q2;q3;q4;a1;a2;a3;a4;r1;b1;b2;e1;e2;f1;f2;f3;Vsym];
     learn = [ 1; 1; 1; 1; 1; 1; 1; 1; 0; 1; 1; 1; 1; 1; 1; 1;1];
     %learn = [ 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0];
-    alfa = 0.001;
-    Qrl = [50 0; 0 1]; Rrl = 0;
+    alfa = 0.00001;
+    Qrl = [10 0; 0 1]; Rrl = 0;
     RLParam = struct('gamma',gamma,'theta',theta,'alfa',alfa,'learn',learn...
                      ,'Q',Qrl,'R',Rrl);
     
 %initial conditions and durations
     
-    x0 = [1;0];
-    tspan = 1000;
+    x0 = [0;0];
+    tspan = 20000;
     h = 0.01;
     xRef= [0;0];
     
