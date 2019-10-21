@@ -26,3 +26,5 @@ month,10,day,11,timestampIn,1570782368,timestampOut,1570804077,time,21709
 month,10,day,14,timestampIn,1571036199,timestampOut,1571063632,time,27433
 month,10,day,16,timestampIn,1571209935,timestampOut,1571233864,time,23929
 month,10,day,17,timestampIn,1571306333,timestampOut,1571327662,time,21329
+month,10,day,18,timestampIn,1571404234,timestampOut,1571418634,time,14400
+month,10,day,21,timestampIn,1571645130,timestampOut,0,time,0

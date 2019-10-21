@@ -14,22 +14,24 @@
     syms b1 b2 real
     nx = 2; nu = 1;
     
-    A = [0 1; -1 -1];       Asym = [a1 a2;a3 a4];
-    B = [0;1];              Bsym = [b1;b2];
+    A = [1 1; -1 -1];       Asym = [a1 a2;a3 a4];
+    B = [1;1];              Bsym = [b1;b2];
     E = [0;0];              Esym = [e1;e2];
     Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'Bsym',Bsym,'E',E,'Esym',Esym);
 
 %MPC parameters
     N = 5; T = 1; 
+	syms V0 real
     syms q1 q2 q3 q4 real
     syms r1          real
     syms f1 f2 f3    real
     syms p1 p2 p3 p4 real
-    Q = [10,0;0,1];          Qsym = [q1 q2;q3 q4];
-    R = 0.1;                Rsym = r1;
+    V0 = 0;                 Vsym = V0
+    Q = [1,0;0,10];         Qsym = [q1 q2;q3 q4];
+    R = .1;                 Rsym = r1;
     f = [0;0;0];            fsym = [f1;f2;f3];
     P = [0 0;0 0];          Psym = [p1 p2;p3 p4];
-    nSym = 3*nx^2 + nu^2 + nx*nu + 2*nx + nu;
+    nSym = 3*nx^2 + nu^2 + nx*nu + 2*nx + nu + 1;
     Xlb = []; Xub = [];
     Ulb = []; Uub = [];
     MPCParam = struct('N',N,'T',T,'Q',Q,'Qsym',Qsym,'R',R,'Rsym',Rsym...
@@ -38,17 +40,20 @@
     
 %RL Parameters
 % theta = [Q,A,R,B,E,F]
-    syms V0 real
+
     gamma = 0.9;
-    theta = [q1;q2;q3;q4;a1;a2;a3;a4;r1;b1;b2;e1;e2;f1;f2;f3];
-    learn = [ 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1];
-    alfa = 0.00001;
-    RLParam = struct('gamma',gamma,'theta',theta,'alfa',alfa,'learn',learn);
+    theta = [q1;q2;q3;q4;a1;a2;a3;a4;r1;b1;b2;e1;e2;f1;f2;f3;V0];
+    learn = [ 1; 1; 1; 1; 1; 1; 1; 1; 0; 1; 1; 1; 1; 1; 1; 1;1];
+    %learn = [ 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0];
+    alfa = 0.001;
+    Qrl = [1 0; 0 1]; Rrl = 1;
+    RLParam = struct('gamma',gamma,'theta',theta,'alfa',alfa,'learn',learn...
+                     ,'Q',Qrl,'R',Rrl);
     
 %initial conditions and durations
     
     x0 = [1;0];
-    tspan = 2000;
+    tspan = 1000;
     h = 0.01;
     xRef= [0;0];
     
@@ -87,39 +92,41 @@ end
 
 %%
 %theta = [Q,A,R,B,E,F]
-bound = 100;
+bound = size(out.V,1)-100;
 tbound = 101 + bound;
 start = 1;
 type = '';
 figure(2)
 clf(2)
 subplot(5,2,1)
-out.t(1:end-tbound)
-plot(  out.theta(start:end-bound,1:4),type); title("Q"); grid on; legend(string(RLParam.theta(1:4))); hold on;
+out.t(1:end-tbound);
+plot(  out.theta(start:bound,1:4),type); title("Q"); grid on; legend(string(RLParam.theta(1:4))); hold on;
 subplot(5,2,2)
-plot(  out.nabla(start:end-bound,1:4),type); title("Nabla Q"); grid on;legend(string(RLParam.theta(1:4))); hold on;
+plot(  out.nabla(start:bound,1:4),type); title("Nabla Q"); grid on;legend(string(RLParam.theta(1:4))); hold on;
 subplot(5,2,3)
-plot(  out.theta(start:end-bound,5:8),type); title("A"); grid on; legend(string(RLParam.theta(5:8))); hold on;
+plot(  out.theta(start:bound,5:8),type); title("A"); grid on; legend(string(RLParam.theta(5:8))); hold on;
 subplot(5,2,4)
-plot(  out.nabla(start:end-bound,5:8),type); title("Nabla A"); grid on; legend(string(RLParam.theta(5:8))); hold on;
+plot(  out.nabla(start:bound,5:8),type); title("Nabla A"); grid on; legend(string(RLParam.theta(5:8))); hold on;
 subplot(5,2,5)
-plot(  out.theta(start:end-bound,9:11),type); title("R & B"); grid on; legend(string(RLParam.theta(9:11))); hold on;
+plot(  out.theta(start:bound,9:11),type); title("R & B"); grid on; legend(string(RLParam.theta(9:11))); hold on;
 subplot(5,2,6)
-plot(  out.nabla(start:end-bound,9:11)),type; title("Nabla R & B"); grid on; legend(string(RLParam.theta(9:11))); hold on;
+plot(  out.nabla(start:bound,9:11)),type; title("Nabla R & B"); grid on; legend(string(RLParam.theta(9:11))); hold on;
 subplot(5,2,7)
-plot(  out.theta(start:end-bound,12:13),type); title("E"); grid on; legend(string(RLParam.theta(12:13))); hold on;
+plot(  out.theta(start:bound,12:13),type); title("E"); grid on; legend(string(RLParam.theta(12:13))); hold on;
 subplot(5,2,8)
-plot(  out.nabla(start:end-bound,12:13),type); title("Nabla E"); grid on; legend(string(RLParam.theta(12:13))); hold on;
+plot(  out.nabla(start:bound,12:13),type); title("Nabla E"); grid on; legend(string(RLParam.theta(12:13))); hold on;
 subplot(5,2,9)
-plot(  out.theta(start:end-bound,14:16),type); title("F"); grid on; legend(string(RLParam.theta(14:16))); hold on;
+plot(  out.theta(start:bound,14:16),type); title("F"); grid on; legend(string(RLParam.theta(14:16))); hold on;
 subplot(5,2,10)
-plot(  out.nabla(start:end-bound,14:16),type); title("Nabla F"); grid on; legend(string(RLParam.theta(14:16))); hold on;
+plot(  out.nabla(start:bound,14:16),type); title("Nabla F"); grid on; legend(string(RLParam.theta(14:16))); hold on;
 %%
 figure(5)
 clf(5)
-plot(out.V(start:end-bound,:),type); title("V"); grid on;  hold on;
-plot(out.L(start:end-bound,:),type); title("V"); grid on;  hold on;
+moveRMS = dsp.MovingAverage(800);
+plot(out.V(start:bound),type); hold on; grid on;
+plot(out.reward(start:bound),type);
+plot(out.target(start:bound),type);
 yyaxis right
-plot(out.x(start:end-bound,1),type); title("V"); grid on;  
-line ([3335 3336],[-1 1])
-legend(["V","L","x"])
+plot(out.TD(start:bound),type);
+yyaxis left
+legend(["V","reward","target",'TD'])

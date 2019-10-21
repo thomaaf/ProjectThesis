@@ -30,6 +30,6 @@ figure(4)
 clf(4)
 plot(V_calc); hold on;
 yyaxis right
-plot(xpos(:,1))
+plot(xpos)
 legend('Vcalc','pos')
 grid on

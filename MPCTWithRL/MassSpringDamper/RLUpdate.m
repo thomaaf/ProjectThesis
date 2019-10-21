@@ -1,12 +1,16 @@
-function [TD, theta,L,delta] = RLUpdate(theta,Vs,Vsn,x,u,nabla,RLParam)
+function [TD, theta,R,target] = RLUpdate(theta,Vs,Vsn,x,u,nabla,RLParam)
 %% x is the current state xk. u is the current action ak
 %% xn is the next state xk+1. un is the next action ak+1
-    Q = [1 0; 0 1]; R = 1;
+    Q = RLParam.Q; R = RLParam.R;
     gamma = RLParam.gamma; alfa = RLParam.alfa;
-    L = x'* Q*x + u'*R*u;
-    delta = gamma*Vsn - Vs;
-    TD = L + delta;          %Rt+1 + y*V(sn) - Q(s,a)
-	theta = (theta + alfa*TD*nabla.*RLParam.learn);  
+    % Reward R for going to state s
+    R = x'*Q*x + u'*R*u;
+   
+    target = R +1*gamma*Vsn;
+    TD = target - Vs;          %Rt+1 + y*V(sn) - Q(s,a)
+     
+	%theta = (theta + alfa*(L + gamma*Vsn-Vs)*nabla.*RLParam.learn);  
+    theta = (theta + alfa*TD*nabla.*RLParam.learn);  
     
 end
 

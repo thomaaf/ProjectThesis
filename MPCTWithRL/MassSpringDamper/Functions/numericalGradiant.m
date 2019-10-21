@@ -1,10 +1,10 @@
-function [Jnum,nums] = numericalGradiant(MPCParam,func,nums,Plqr,theta)
+function [Jnum,numsi] = numericalGradiant(MPCParam,func,nums,Plqr,theta)
 %% numericalGradiant(MPCParam,Model,Gradiant,nums)
 %% MPCParam for parameters. Gradient for the symbolic equation. Nums for numerical values
 %% All symbolic variables must be in MPCParam.
 %% 
     
-    optNums = reshape(nums',size(nums,1)*size(nums,2),1);
+    
 
 %     MPCnums = [%reshape(MPCParam.Q,size(MPCParam.Q,1)*size(MPCParam.Q,2),1);
 %                reshape(MPCParam.R,size(MPCParam.R,1)*size(MPCParam.R,2),1);
@@ -13,11 +13,11 @@ function [Jnum,nums] = numericalGradiant(MPCParam,func,nums,Plqr,theta)
     
     thetaNums = theta;
            
-    nums = [optNums;thetaNums;reshape(Plqr,size(Plqr,1)*size(Plqr,2),1)];
+    numsi = [nums;thetaNums;reshape(Plqr,size(Plqr,1)*size(Plqr,2),1)];
     
     fstring = sprintf('MPCParam.%s(',func);
-    for i = 1:size(nums,1)
-       fstring = sprintf('%s%.14e,',fstring,nums(i));
+    for i = 1:size(numsi,1)
+       fstring = sprintf('%s%.14e,',fstring,numsi(i));
     end
     fstring = fstring(1:end-1); fstring = sprintf('%s)',fstring);
     Jnum = eval(fstring);    

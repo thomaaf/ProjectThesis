@@ -17,6 +17,7 @@ function  [opts,args]= casadiOptions(Model,MPCParam,RLParam,InitParam)
     opts.print_time = 0;
     opts.ipopt.acceptable_tol = 1e-8;
     opts.ipopt.acceptable_obj_change_tol = 1e-6;
+    opts.calc_multipliers = 0; 
 %Arguments
     args = struct;
 % lbg&ubg = lower and upper bounds on the equality constraint

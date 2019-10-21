@@ -1,20 +1,15 @@
 function MPCParam= symbolicProblem (Model,MPCParam,RLParam,InitParam,type)
 %% Calculates a symbolic representation of the optimization problem. Type specifies
-%% if the LQR matrix should be symbolic (0) or not(1)
 %Model
     nx = Model.nx; nu = Model.nu;
     A  = Model.Asym ; B  = Model.Bsym; E = Model.Esym;
 %MPC
     N = MPCParam.N; T = MPCParam.T;
-%     if type == 1
-%         Q = MPCParam.Q; R = MPCParam.R;
-%         [K,Plqr,e] = lqr(A,B,Q,R,[]);
-%         f = MPCParam.f; 
-%     else
+    V0 = MPCParam.Vsym;
     Q = MPCParam.Qsym; R = MPCParam.Rsym;
     syms p [1 nx+nx] real;
     Plqr = [p1, p2;p3,p4];
-    f = MPCParam.fsym;
+    F = MPCParam.fsym;
 %     end
       
 %RL
@@ -23,49 +18,57 @@ function MPCParam= symbolicProblem (Model,MPCParam,RLParam,InitParam,type)
 %Init
     x0 = InitParam.x0;
     syms x   [nx N+1] real;                 %State variables
-    syms u   [nu N+1] real;                 %Input variables
-    syms chi [nx N+1] real;                 %Lagrange multipliers for function eq constraints
-    z = [x(:,2:end);u(1:end-1)];            %Decision variables vector(That are in the cost)
-    vars = [x;u;chi];                      %Matrix of differentiable variables
-    chi = reshape(chi,(N+1)*nx,1);         %Reshaping the multipliers to correct form
+    syms u   [nu N] real;                 %Input variables
+    syms chi [1 (N+1)*nx] real;                 %Lagrange multipliers for function eq constraints
+    %vars = [x;u;chi];                      %Matrix of differentiable variables
+    %chi = reshape(chi,(N+1)*nx,1);         %Reshaping the multipliers to correct form
     DCStageCost(1:N,1) = sym('0');          %Vector of Discounted Stagecost 
-    LPStageCost(1:N,1) = sym('0');          %Vector of Linear, Parametrized Stagecost 
+    LStageCost(1:N,1) = sym('0');          %Vector of Linear, Parametrized Stagecost 
     obj = 0;                                %Objective function -> sum of stageCost    
-    constraints(1:N*nx,1) = sym('0');       %Vector of all equality constraints
+    g2(1:N*nx + nx,1) = sym('0');       %Vector of all equality constraints
 
-    
-    
+%----------Discretize matricies
+    Ak = eye(nx) + T/N*A; Bk = T/N*B; Ek = T/N*E;
+
 %% Calculation of symbolic lagrangian
-
+    g2(1:nx) = x(:,1) - x0;
     for k = 1:N % Sum of cost, from 0 to N-1
-        constraints((k-1)*nx+1:k*nx) = -x(:,k+1) + ((eye(nx) + T/N*A)*x(:,k) + T/N*(B*u(:,k) + E)) ;
-        DCStageCost(k) = 0.5 * gamma^(k-1) * (x(:,k)'*Q*x(:,k) + u(:,k)'*R*u(:,k));
-        LPStageCost(k) = f'*[x(:,k);u(:,k)];
-        obj = obj + DCStageCost(k) + LPStageCost(k);
+        g2(k*nx+1:(k+1)*nx) = x(:,k+1) - (Ak*x(:,k) + Bk*u(:,k) + Ek);
+        DCStageCost(k) = 0.5*gamma^(k-1)*( x(:,k)'*Q*x(:,k) + u(:,k)'*R*u(:,k) );
+        LStageCost (k) = F'*[x(:,k);u(:,k)];
+        obj = obj + DCStageCost(k) + LStageCost(k);
         
+        fprintf("\n%i DC: %s \n",k,string(DCStageCost(k)));
+        fprintf("%i  L: %s \n",k,string(LStageCost(k)));
+        fprintf("%i g2: %s \n",k,string(g2(k)));
         
     end
-    TMStageCost = 0.5*gamma^(k+1)*(x(:,k+1)'*Plqr*x(:,k+1));
+  
+    TMStageCost = V0 + 0.5*gamma^N*x(:,k+1)'*Plqr*x(:,k+1);
+    fprintf("\n%i final: %s \n",k,string(TMStageCost ));
     obj = obj + TMStageCost;
-    constraints = [-x(:,1) + x0 ;constraints];
-    L = obj - chi'*constraints;
+
+    L = obj - chi*g2;
 %% Print
     fprintf("Short form\n")
     fprintf("V(s) =\t min z 0.5*\x0194^\x207f\x207a\x00b9*x'P\x2097x +0.5*\x03A3(\x0194^\x207f\x207b\x00b9(x'Qx + u'Ru) + f'[x;u]); \t\tn = 1:N\n")
     fprintf("\t\t st \n\t\t \t x\x2096\x208a\x2081 = x\x2096 + T/N*(Ax\x2096 + Bu\x2096);\t\t\t\t\t\t\t\t\tk = [0:N]\n")
-    fprintf("Long form\n")
-    fprintf("Discounted Stagecost: \n");disp(DCStageCost);          MPCParam.DCStageCost = DCStageCost; 
-    fprintf("Linear Stagecost: \n");    disp(LPStageCost);          MPCParam.LPStageCost = LPStageCost;
-    fprintf("Terminal Stagecost: \n");  disp(TMStageCost);          MPCParam.TMStageCost = TMStageCost;
-    fprintf("Constraints : \n");        disp(constraints);          MPCParam.constraints = constraints;
-    fprintf("Objective function: \n");  disp(children(obj)');       MPCParam.obj = children(obj)';
-    fprintf("Lagrangian; \n");          disp(children(L)');         MPCParam.L = children(L)';
+%     fprintf("Discounted Stagecost: \n");disp(DCStageCost);          MPCParam.DCStageCost = DCStageCost; 
+%     fprintf("Linear Stagecost: \n");    disp(LPStageCost);          MPCParam.LPStageCost = LPStageCost;
+%     fprintf("Terminal Stagecost: \n");  disp(TMStageCost);          MPCParam.TMStageCost = TMStageCost;
+%     fprintf("Constraints : \n");        disp(g2);                   MPCParam.constraints = g2;
+%     fprintf("Objective function: \n");  disp(children(obj)');       MPCParam.obj = children(obj)';
+%     fprintf("Lagrangian; \n");          disp(children(L)');         MPCParam.L = children(L)';
+    MPCParam.DCStageCost = DCStageCost; 
+    MPCParam.LPStageCost = LStageCost;
+    MPCParam.TMStageCost = TMStageCost;
+    MPCParam.g2 = g2;
+    MPCParam.obj = children(obj)';
+    MPCParam.L = children(L)';    
     
-    optVars = reshape(vars',size(vars,1)*size(vars,2),1);
-%     MPCVars=[%reshape(MPCParam.Qsym,size(MPCParam.Qsym,1)*size(MPCParam.Qsym,2),1);
-%                     reshape(MPCParam.Rsym',size(MPCParam.Rsym,1)*size(MPCParam.Rsym,2),1);
-%                     reshape(MPCParam.fsym,size(MPCParam.fsym,1)*size(MPCParam.fsym,2),1);
-%                     reshape(MPCParam.Psym',size(MPCParam.Psym,1)*size(MPCParam.Psym,2),1);];
+    
+    optVars = [reshape(x',nx*(N+1),1);reshape(u',nu*(N),1);chi']
+
     thetaVars = RLParam.theta;
 	MPCParam.vars = [optVars; thetaVars;reshape(MPCParam.Psym',size(MPCParam.Psym,1)*size(MPCParam.Psym,2),1)];
 end
