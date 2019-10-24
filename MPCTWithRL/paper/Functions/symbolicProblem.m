@@ -67,7 +67,7 @@ function MPCParam= symbolicProblem (Model,MPCParam,RLParam,InitParam,type)
     MPCParam.L = children(L)';    
     
     
-    optVars = [reshape(x',nx*(N+1),1);reshape(u',nu*(N),1);chi']
+    optVars = [reshape(x',nx*(N+1),1);reshape(u',nu*(N),1);chi'];
 
     thetaVars = RLParam.theta;
 	MPCParam.vars = [optVars; thetaVars;reshape(MPCParam.Psym',size(MPCParam.Psym,1)*size(MPCParam.Psym,2),1)];

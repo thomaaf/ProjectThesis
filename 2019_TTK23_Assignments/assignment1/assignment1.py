@@ -21,8 +21,10 @@ def show_policy(mdp, PI):
 ####################  Problem 1: Value Iteration #################### 
 
 def value_iteration(mdp, gamma, theta = 1e-3):
-    V = np.zeros((len(mdp.states())))    
+    V = np.zeros((len(mdp.states()))) 
+    error = []
     while True:
+        Vinit = np.copy(V)
         delta = 0
         for s in mdp.states():
             v = V[s]
@@ -40,22 +42,8 @@ def value_iteration(mdp, gamma, theta = 1e-3):
         
         if delta < theta:
             break
-    return V
-    """
-    Input arguments:
-        - mdp     Is the markov decision process, it has some usefull functions given below
-        - gamma   Is the discount rate
-        - theta   Is a small threshold for determining accuracy of estimation
-    
-    Some usefull functions of the grid world mdp:
-        - mdp.states() returns a list of all states [0, 1, 2, ...]
-        - mdp.actions(state) returns list of actions ["U", "D", "L", "R"] if state non-terminal, [] if terminal
-        - mdp.transition_probability(s, a, s_next) returns the probability p(s_next | s, a)
-        - mdp.reward(state) returns the reward of the state R(s)
-    """
-    raise Exception("Not implemented")
-            
-    return V
+        error.append((np.linalg.norm(V - Vinit)))            
+    return V,error
 
 def policy(mdp, V):
     # Initialize the policy list of crrect length
@@ -78,8 +66,10 @@ def policy(mdp, V):
 ####################  Problem 2: Policy Iteration #################### 
 def policy_evaluation(mdp, gamma, PI, V, theta = 1e-3):   
     #V = np.zeros((len(mdp.states())))    
+    error = []
     while True:
         delta = 0
+        Vinit = np.copy(V)
         for s in mdp.states():
             v = V[s]
             tmp2 = 0;
@@ -91,11 +81,11 @@ def policy_evaluation(mdp, gamma, PI, V, theta = 1e-3):
             else:
                 V[s] = tmp2
             delta = max([delta,abs(v - V[s])])
-        print(delta)
+        #print(delta)
         if delta < theta:
             break
-    return V 
-
+        error.append(np.linalg.norm(V - Vinit))
+    return V,error
 
 def policy_iteration(mdp, gamma):
     # Make a valuefunction, initialized to 0
@@ -103,18 +93,18 @@ def policy_iteration(mdp, gamma):
     
     # Create an arbitrary policy PI
     PI = np.random.choice(env.actions(), len(mdp.states()))
-    print(PI)
+    #print(PI)
+    error = []
     while True:
-        V = policy_evaluation(mdp, gamma, PI, V, theta = 1e-3)
-        print(V)
+        V,tmp = policy_evaluation(mdp, gamma, PI, V, theta = 1e-3)
+        for i in range(len(tmp)):
+            error.append(tmp[i])
         PI2 = policy(mdp, V)
-        #print(PI)
         if np.array_equal(PI, PI2):
             break
         else:
             PI = PI2
-
-    return PI, V        
+    return PI, V,error   
     """
     YOUR CODE HERE:
     Problem 2b) Implement Policy Iteration
@@ -130,6 +120,31 @@ def policy_iteration(mdp, gamma):
             
     return PI, V
 
+def store(V,env):
+    #pos on form [row,col]
+    pos = env.states(True)
+    nrow = 10
+    ncol = 10
+    Vnew=[[0 for j in range(ncol)] for i in range(nrow)]
+    c = 0
+    for row in range(nrow):
+        for col in range(ncol):
+           #input("(" + str(row) + "," + str(col) + ")")
+            if (row,col) in pos:
+                Vnew[row][col] = V[c]
+                c+= 1
+            else:
+                Vnew[row][col] = 0
+    Vstring = "["            
+    for i in range(nrow):
+        Vstring += str(Vnew[i]).replace("[","").replace("]","") + ";\n"
+        #input(Vstring)
+    Vstring = Vstring[:-2] + "]"
+    f = open("Value.txt","w")
+    f.write(Vstring)
+    f.close()
+    #for i in range(len(V)):
+
 if __name__ == "__main__":
     """
     Change the parameters below to change the behaveour, and map of the gridworld.
@@ -141,27 +156,40 @@ if __name__ == "__main__":
         - gridworlds/tiny.json
         - gridworlds/large.json
     """
-    gamma   = .9
-    filname = "gridworlds/large.json"
+    Vstring = ""
+    gamma = .99
+    for i in range (10):
+        print(i)
+        filname = "gridworlds/large2.json"
+        # Import the environment from file
+        env = gridWorld(filname)
+        # Render image
+        #fig = env.render(show_state = False)
+        #plt.show()
+        # Run Value Iteration and render value function and policy
+        V,error = value_iteration(mdp = env, gamma = gamma)
+        #print("Value iteration")
+        #print(error)
+        #print("")
+        PI = policy(env, V)
+        
+        show_policy(env, PI)
+        show_value_function(env, V)
+        # Run Policy Iteration and render value function and policy
+        #PI, V,error2 = policy_iteration(mdp = env, gamma = gamma)
+        #show_policy(env, PI)
+        #print("Policy iteration")
+        #print(error2)
+        #print("")
+        #Vstring +=str(gamma) + "\n" +str(error) + "\n\n" + str(error2) + "\n\n\n"
+        gamma = gamma - 0.05
 
-
-
-    # Import the environment from file
-    env = gridWorld(filname)
-
-    # Render image
-    #fig = env.render(show_state = False)
-    #plt.show()
-
-    # Run Value Iteration and render value function and policy
-    #V = value_iteration(mdp = env, gamma = gamma)
-
-    #PI = policy(env, V)
-
+    f = open("Value.txt","w")
+    f.write(Vstring)
+    f.close()
+    
+    #store(V,env)
     #show_value_function(env, V)
     #show_policy(env, PI)
-    
-    # Run Policy Iteration and render value function and policy
-    PI, V = policy_iteration(mdp = env, gamma = gamma)
-    show_value_function(env, V)
-    show_policy(env, PI)
+
+

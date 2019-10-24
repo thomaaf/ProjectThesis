@@ -14,54 +14,55 @@
     syms b1 b2 real
     nx = 2; nu = 1;
     
-    A = [1 1; -1 -1];       Asym = [a1 a2;a3 a4];
-    B = [1;1];              Bsym = [b1;b2];
+    A = [1 0.25; 0 1];      Asym = [a1 a2;a3 a4];
+    B = [0.0312;0.25];      Bsym = [b1;b2];
     E = [0;0];              Esym = [e1;e2];
-    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'Bsym',Bsym,'E',E,'Esym',Esym);
+    w = [10^2;  10^2];
+    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'Bsym',Bsym,'E',E,'Esym',Esym,'w',w);
 
 %MPC parameters
-    N = 5; T = 1; 
+    N = 10; T = 1; 
 	syms V0 real
     syms q1 q2 q3 q4 real
     syms r1          real
     syms f1 f2 f3    real
     syms p1 p2 p3 p4 real
-    V0 = 0;                 Vsym = V0
-    Q = [1,0;0,10];         Qsym = [q1 q2;q3 q4];
-    R = .1;                 Rsym = r1;
+    Vsym = V0;              Vinit = 0;                 
+    Q = [1,0;0,1];         Qsym = [q1 q2;q3 q4];
+    R = 0.5;                 Rsym = r1;
     f = [0;0;0];            fsym = [f1;f2;f3];
     P = [0 0;0 0];          Psym = [p1 p2;p3 p4];
-    nSym = 3*nx^2 + nu^2 + nx*nu + 2*nx + nu + 1;
+    nSym = nx*nx*2+1 + 5*nx + nu;
     Xlb = []; Xub = [];
-    Ulb = []; Uub = [];
-    MPCParam = struct('N',N,'T',T,'Q',Q,'Qsym',Qsym,'R',R,'Rsym',Rsym...
+    Ulb = [-1]; Uub = [1];
+    MPCParam = struct('N',N,'T',T,'V0',Vinit,'Vsym',Vsym,'Q',Q,'Qsym',Qsym,'R',R,'Rsym',Rsym...
         ,'P',P,'Psym',Psym,'f',f,'fsym',fsym,'Xlb',Xlb,'Xub',Xub,'Ulb'...
         ,Ulb,'Uub',Uub,'nSym',nSym);
     
 %RL Parameters
 % theta = [Q,A,R,B,E,F]
 
-    gamma = 0.9;
-    theta = [q1;q2;q3;q4;a1;a2;a3;a4;r1;b1;b2;e1;e2;f1;f2;f3;V0];
+    gamma = 0.99;
+    theta = [q1;q2;q3;q4;a1;a2;a3;a4;r1;b1;b2;e1;e2;f1;f2;f3;Vsym];
     learn = [ 1; 1; 1; 1; 1; 1; 1; 1; 0; 1; 1; 1; 1; 1; 1; 1;1];
     %learn = [ 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0];
-    alfa = 0.001;
-    Qrl = [1 0; 0 1]; Rrl = 1;
+    alfa = 0.00001;
+    Qrl = [10 0; 0 1]; Rrl = 0;
     RLParam = struct('gamma',gamma,'theta',theta,'alfa',alfa,'learn',learn...
                      ,'Q',Qrl,'R',Rrl);
     
 %initial conditions and durations
     
-    x0 = [1;0];
-    tspan = 1000;
+    x0 = [0;0];
+    tspan = 20000;
     h = 0.01;
     xRef= [0;0];
     
     InitParam = struct('x0',x0,'tspan',tspan,'h',h,'xRef',xRef);
    
-    MPCParam     = symbolicProblem(Model,MPCParam,RLParam,InitParam,0);
-   [MPCParam.KKT, MPCParam.KKTF ]= symbolicGradiant(MPCParam,MPCParam.vars(1:(N+1)*nx+N*nu,1));
-   [MPCParam.Jtheta,MPCParam.F] = symbolicGradiant(MPCParam,theta);
+   % MPCParam     = symbolicProblem(Model,MPCParam,RLParam,InitParam,0);
+   %[MPCParam.KKT, MPCParam.KKTF ]= symbolicGradiant(MPCParam,MPCParam.vars(1:(N+1)*nx+N*nu,1));
+   %[MPCParam.Jtheta,MPCParam.F] = symbolicGradiant(MPCParam,theta);
 %%
 fprintf("================NEW SIMULATION================\n")
 fprintf("================NEW SIMULATION================\n")
@@ -71,19 +72,19 @@ clearvars -except MPCParam InitParam Model RLParam out
 %%
 Analyze(out.x,out.u,out.t,out,MPCParam,RLParam,Model)
 %%
-evalTime = 20;
-Jnum = zeros(20,1);
-Func = symfun(sum(MPCParam.obj),MPCParam.vars);
-Func = matlabFunction(Func);
-fstring = sprintf('Func(');
-for i = 1:size(out.numsopt,2)
-   fstring = sprintf('%s %s%i%s',fstring,"out.numsopt(t,",i,"),");
-end
-fstring = fstring(1:end-1); fstring = sprintf('%s)',fstring);
-for i = 1:size(Jnum,1)
-    t = (i-1)*20 + 1;
-    Jnum(i) = eval(fstring);
-end
+% evalTime = 20;
+% Jnum = zeros(20,1);
+% Func = symfun(sum(MPCParam.obj),MPCParam.vars);
+% Func = matlabFunction(Func);
+% fstring = sprintf('Func(');
+% for i = 1:size(out.numsopt,2)
+%    fstring = sprintf('%s %s%i%s',fstring,"out.numsopt(t,",i,"),");
+% end
+% fstring = fstring(1:end-1); fstring = sprintf('%s)',fstring);
+% for i = 1:size(Jnum,1)
+%     t = (i-1)*20 + 1;
+%     Jnum(i) = eval(fstring);
+% end
 % figure(3)
 % clf(3)
 % plot(RLParam.gamma*out.V(21:20:end) - out.V(1:20:end-19))
