@@ -1,3 +1,4 @@
+
 %Description
 % nx = n states, nu = n inputs, N = Prediciton horizon, T = predict time
 % A,B = System matricies; Q,R = Cost matrices, x0 = System initial cond
@@ -12,38 +13,44 @@
 	syms a1 a2 a3 a4 real
     syms e1 e2 real
     syms b1 b2 real
+    syms xsub1 xsub2 real
+    syms xtop1 xtop2 real
     nx = 2; nu = 1;
     
     A = [1 0.25; 0 1];      Asym = [a1 a2;a3 a4];
     B = [0.0312;0.25];      Bsym = [b1;b2];
     E = [0;0];              Esym = [e1;e2];
     w = [10^2;  10^2];
-    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'Bsym',Bsym,'E',E,'Esym',Esym,'w',w);
+    xsub = [0;0];           xsubsym = [xsub1; xsub2];
+    xtop = [0;0];           xtopsym = [xtop1; xtop2];
+    Model = struct('nx',nx,'nu',nu,'A',A,'Asym',Asym,'B',B,'Bsym',Bsym,'E',E...
+                   ,'Esym',Esym,'w',w,'xsub',xsub,'xsubsym',xsubsym...
+                   ,'xtop',xtop,'xtopsym',xtopsym);
 
 %MPC parameters
-    N = 10; T = 1; 
+    N = 3; T = 1; 
 	syms V0 real
     syms q1 q2 q3 q4 real
     syms r1          real
     syms f1 f2 f3    real
     syms p1 p2 p3 p4 real
     Vsym = V0;              Vinit = 0;                 
-    Q = [1,0;0,1];         Qsym = [q1 q2;q3 q4];
-    R = 0.5;                 Rsym = r1;
-    f = [0;0;0];            fsym = [f1;f2;f3];
+    Q = [0.5,0;0,0.5];      Qsym = [q1 q2;q3 q4];
+    R = 0.25;                Rsym = r1;
+    F = [0;0;0];            Fsym = [f1;f2;f3];
     P = [0 0;0 0];          Psym = [p1 p2;p3 p4];
     nSym = nx*nx*2+1 + 5*nx + nu;
     Xlb = []; Xub = [];
     Ulb = [-1]; Uub = [1];
     MPCParam = struct('N',N,'T',T,'V0',Vinit,'Vsym',Vsym,'Q',Q,'Qsym',Qsym,'R',R,'Rsym',Rsym...
-        ,'P',P,'Psym',Psym,'f',f,'fsym',fsym,'Xlb',Xlb,'Xub',Xub,'Ulb'...
+        ,'P',P,'Psym',Psym,'F',F,'fsym',Fsym,'Xlb',Xlb,'Xub',Xub,'Ulb'...
         ,Ulb,'Uub',Uub,'nSym',nSym);
     
 %RL Parameters
 % theta = [Q,A,R,B,E,F]
 
     gamma = 0.99;
-    theta = [q1;q2;q3;q4;a1;a2;a3;a4;r1;b1;b2;e1;e2;f1;f2;f3;Vsym];
+    theta = [V0;xsubsym;xtopsym;Esym;Bsym;Fsym;Asym(:)];
     learn = [ 1; 1; 1; 1; 1; 1; 1; 1; 0; 1; 1; 1; 1; 1; 1; 1;1];
     %learn = [ 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0; 0];
     alfa = 0.00001;
@@ -52,17 +59,17 @@
                      ,'Q',Qrl,'R',Rrl);
     
 %initial conditions and durations
-    
+    syms x0sym [nx,1] real
     x0 = [0;0];
     tspan = 20000;
     h = 0.01;
     xRef= [0;0];
     
-    InitParam = struct('x0',x0,'tspan',tspan,'h',h,'xRef',xRef);
+    InitParam = struct('x0',x0,'x0sym',x0sym,'tspan',tspan,'h',h,'xRef',xRef);
    
-   % MPCParam     = symbolicProblem(Model,MPCParam,RLParam,InitParam,0);
-   %[MPCParam.KKT, MPCParam.KKTF ]= symbolicGradiant(MPCParam,MPCParam.vars(1:(N+1)*nx+N*nu,1));
-   %[MPCParam.Jtheta,MPCParam.F] = symbolicGradiant(MPCParam,theta);
+   MPCParam     = symbolicProblem(Model,MPCParam,RLParam,InitParam,0);
+   [MPCParam.KKT, MPCParam.KKTF ]= symbolicGradiant(MPCParam,MPCParam.optVars(1:end-size(MPCParam.g,1)) );
+   [MPCParam.thetaGrad,MPCParam.thetaGradFunc] = symbolicGradiant(MPCParam,theta);
 %%
 fprintf("================NEW SIMULATION================\n")
 fprintf("================NEW SIMULATION================\n")
