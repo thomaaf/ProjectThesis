@@ -8,12 +8,12 @@ function [RLdata,numdata] = Simulation(Model,MPC,RL,Init,nlpProb,args,opts,nlpPr
 
 	solver = casadi.nlpsol('solver', 'ipopt', nlpProb,opts);   
 	theta = RL.Theta;
-
+    
 %Solve initial problem
-	args.X0 = zeros(nx,N+1); args.S0 = zeros(nx,N); args.U0 = zeros(nu,N);	
+	args.X0 = zeros(nx,N+1); args.S0 = zeros(nx,N+1); args.U0 = zeros(nu,N);	
 	args.x0 = [args.X0(:);args.S0(:);args.U0(:)]; 
 	[nums,V,a] = solveOpt(Model,MPC,solver,args,theta,Init.X0);
-
+    nlpProbSym.dLdx(nums)
 %Initial conditions of problem-
 	s = Init.X0;
 	nabla = nlpProbSym.dLdtheta(nums)';
@@ -22,7 +22,7 @@ function [RLdata,numdata] = Simulation(Model,MPC,RL,Init,nlpProb,args,opts,nlpPr
 
 
 	while t < Init.tspan
-		sn = progress(s,0);
+		sn = progress(s,a);
 
  		[numsn,Vn,an] = solveOpt(Model,MPC,solver,args,theta,sn);
  		if abs(max(nlpProbSym.dLdx(numsn))) >1e-8
@@ -64,7 +64,8 @@ function [nums,V,a] = solveOpt(Model,MPC,solver,args,theta,s)
 	args.p = [Plqr(:);theta;s];
 	args.x0 = [args.X0(:);args.S0(:);args.U0(:)]; 
 	sol = solver('x0',args.x0, 'lbx',args.lbx,'ubx',args.ubx,'lbg',args.lbg,'ubg',args.ubg,'p',args.p);
-	optNums = full([sol.x;sol.lam_g;sol.lam_x(end-nu*N+1:end)]);
+	sol
+	optNums = full([sol.x;sol.lam_g]);
 	nums = [optNums;Plqr(:);theta;s];	
 	a = full(sol.x(end-nu*N+1));
 	V = full(sol.f);

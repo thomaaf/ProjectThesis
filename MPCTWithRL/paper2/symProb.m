@@ -1,7 +1,7 @@
 function nlpProb = symProb(Model,MPC,RL,Init)
 	nx = Model.nx; nu = Model.nu; N = MPC.N; n = MPC.n;
 	syms X [nx,N+1] real;
-	syms S [nx,N] 	real;
+	syms S [nx,N+1] 	real;
 	syms U [nu,N]	real;
 	syms P [n,1]	real;
 
@@ -20,28 +20,33 @@ function nlpProb = symProb(Model,MPC,RL,Init)
 %Creating constraints and objective
 	gamma = RL.gamma; W = Model.W;
 	Xlb = MPC.Xlb; Xub = MPC.Xub;	
-	g0 = X(:,1) - X0;
-	g1 = X(:,2:N+1) - (A*X(:,1:N)+ B*U(:,1:N) + b);
-	g2l = [0;1] - xsub + S(:,1:N) + X(:,1:N) ;
-	g2t = [1;1] + xtop + S(:,1:N) - X(:,1:N) ;
+	eq0 = X(:,1) - X0;
+	eq1 = X(:,2:N+1) - (A*X(:,1:N)+ B*U(:,1:N) + b);
+	
+	g1 =  U - 1;
+	g2 = -U - 1;
 
-	obj1 = F'*[X(:,1:N);U(:,1:N)];
-	obj2 = 0.5*gamma.^(0:N-1).*(sum(X(:,1:N).^2) + 0.5*U(:,1:N).^2 + W'*S(:,1:N));
-	obj3 = V0 + gamma^N/2*X(:,N+1)'*Plqr*X(:,N+1);
+	h1 =  [-0;1] + xsub - X(:,1:N+1) - S(:,1:N+1);
+	h2 = -[ 1;1] - xtop + X(:,1:N+1) - S(:,1:N+1);
 
-	g = [g0;g1(:);g2l(:);g2t(:)];
+	obj1 = V0 + gamma^N/2*X(:,N+1)'*Plqr*X(:,N+1) + W'*S(:,N+1);
+	obj2 = F'*[X(:,1:N);U(:,1:N)];
+	obj3 = 0.5*gamma.^(0:N-1).*(sum(X(:,1:N).^2) + 0.5*U(:,1:N).^2 + W'*S(:,1:N));
+
+	g = [eq0;eq1(:);g1(:);g2(:);h1(:);h2(:)];
 	obj = sum(obj1) + sum(obj2) + sum(obj3);  
 
-	syms lambda [size(g,1),1] 	real;
-	syms chi 	[nu*N,1]		real;
+	size(g)
 
+	syms chi 	[N*(2*nu + 3*nx) + 3*nx,1]		real;
+	size(chi)
 	OPTVariables = [X(:);S(:);U(:)];
-	vars = [OPTVariables;lambda;chi;P];
+	vars = [OPTVariables;chi;P];
 	f = matlabFunction(obj,'Vars',{vars});
 %--------------------------------------------------------------------
 
 
-	L = obj + lambda'*g + chi'*U';
+	L = obj + chi'*g;
 	
     for i = 1:size(OPTVariables,1)
         dLdx(i) = diff(L,OPTVariables(i),1);
@@ -50,7 +55,6 @@ function nlpProb = symProb(Model,MPC,RL,Init)
     for i = 1:size(RL.theta,1)
         dLdtheta(i) = diff(L,theta(i),1);
     end
-    vars = [OPTVariables;lambda;chi;P];
     dLdx = matlabFunction(dLdx,'Vars',{vars});
     dLdtheta = matlabFunction(dLdtheta,'Vars',{vars});
 

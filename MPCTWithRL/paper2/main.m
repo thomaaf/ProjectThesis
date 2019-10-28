@@ -15,7 +15,7 @@ nx = 2; nu = 1;
     
 A = [0.9 0.35;0 1.1]; 	syms a 		[nx,nx]	real;
 B = [0.0813;0.2];	syms b 		[nx,1]	real;
-E = [-1;0]; 			syms e 		[nx,1]	real;
+E = [-.1;0]; 			syms e 		[nx,1]	real;
 Xsub = [0;0]; 		syms xsub 	[nx,1]	real;
 Xtop = [0;0];   	syms xtop 	[nx,1] 	real;
 W = [10^2;  10^2];		
