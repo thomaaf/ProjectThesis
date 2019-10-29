@@ -21,15 +21,15 @@ function [nlpProb,args,opts ] = casadiProb(Model,MPC,RL,Init)
 	gamma = RL.gamma; W = Model.W;
 	Xlb = MPC.Xlb; Xub = MPC.Xub;	
 	eq0 = X(:,1) - X0;
-	eq1 = X(:,2:N+1) - (A*X(:,1:N)+ B*U(:,1:N) + b);
+	eq1 =   (A*X(:,1:N)+ B*U(:,1:N) + b) - X(:,2:N+1);
 	
 	g1 =  U - 1;
 	g2 = -U - 1;
 
-	h1 =  [-0;1] + xsub - X(:,1:N+1) - S(:,1:N+1);
-	h2 = -[ 1;1] - xtop + X(:,1:N+1) - S(:,1:N+1);
+	h1 =  [ 0;-1] + xsub - X(:,1:N+1) - S(:,1:N+1);
+	h2 = -[ 1; 1] - xtop + X(:,1:N+1) - S(:,1:N+1);
 
-	obj1 = V0 + gamma^N/2*X(:,N+1)'*Plqr*X(:,N+1) + W'*S(:,N+1);
+	obj1 = V0 + gamma^N/2*X(:,N+1)'*Plqr*X(:,N+1) + W'*S(:,N+1)*1;
 	obj2 = F'*[X(:,1:N);U(:,1:N)];
 	obj3 = 0.5*gamma.^(0:N-1).*(sum(X(:,1:N).^2) + 0.5*U(:,1:N).^2 + W'*S(:,1:N));
 
@@ -46,8 +46,12 @@ function [nlpProb,args,opts ] = casadiProb(Model,MPC,RL,Init)
 	args.lbg = [lbgeq;lbgg];
 	args.ubg = [ubgeq;ubgg];
 
-	args.lbx = -inf(N*(nu + 2*nx) + 2*nx,1);
-	args.ubx =  inf(N*(nu + 2*nx) + 2*nx,1);
+	lbX = -inf(nx*(N+1),1); ubX = inf(nx*(N+1),1);
+	lbS =zeros(nx*(N+1),1); ubS = inf(nx*(N+1),1);
+	lbU = -inf(nu*(N),1); 	ubU = inf(nu*(N),1);  
+	args.lbx = [lbX;lbS;lbU];
+	args.ubx = [ubX;ubS;ubU];
+
 
 	opts = struct;
 	opts.ipopt.max_iter = 100;
@@ -58,3 +62,4 @@ function [nlpProb,args,opts ] = casadiProb(Model,MPC,RL,Init)
 	opts.calc_multipliers = 0; 	
 
 end
+

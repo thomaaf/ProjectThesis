@@ -21,25 +21,24 @@ function nlpProb = symProb(Model,MPC,RL,Init)
 	gamma = RL.gamma; W = Model.W;
 	Xlb = MPC.Xlb; Xub = MPC.Xub;	
 	eq0 = X(:,1) - X0;
-	eq1 = X(:,2:N+1) - (A*X(:,1:N)+ B*U(:,1:N) + b);
+	eq1 =   (A*X(:,1:N)+ B*U(:,1:N) + b) - X(:,2:N+1);
 	
 	g1 =  U - 1;
 	g2 = -U - 1;
+	g3 = S
+	h1 =  [ 0;-1] + xsub - X(:,1:N+1) - S(:,1:N+1);
+	h2 = -[ 1; 1] - xtop + X(:,1:N+1) - S(:,1:N+1);
 
-	h1 =  [-0;1] + xsub - X(:,1:N+1) - S(:,1:N+1);
-	h2 = -[ 1;1] - xtop + X(:,1:N+1) - S(:,1:N+1);
-
-	obj1 = V0 + gamma^N/2*X(:,N+1)'*Plqr*X(:,N+1) + W'*S(:,N+1);
+	obj1 = V0 + gamma^N/2*X(:,N+1)'*Plqr*X(:,N+1) + W'*S(:,N+1)*1;
 	obj2 = F'*[X(:,1:N);U(:,1:N)];
 	obj3 = 0.5*gamma.^(0:N-1).*(sum(X(:,1:N).^2) + 0.5*U(:,1:N).^2 + W'*S(:,1:N));
 
-	g = [eq0;eq1(:);g1(:);g2(:);h1(:);h2(:)];
+	g = [eq0;eq1(:);g1(:);g2(:);h1(:);h2(:);g3(:)];
 	obj = sum(obj1) + sum(obj2) + sum(obj3);  
 
-	size(g)
+	children(obj)'
+	syms chi 	[N*(2*nu + 4*nx) + 4*nx,1]		real;
 
-	syms chi 	[N*(2*nu + 3*nx) + 3*nx,1]		real;
-	size(chi)
 	OPTVariables = [X(:);S(:);U(:)];
 	vars = [OPTVariables;chi;P];
 	f = matlabFunction(obj,'Vars',{vars});
