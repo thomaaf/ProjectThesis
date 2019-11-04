@@ -20,7 +20,7 @@ def show_policy(mdp, PI):
     
 ####################  Problem 1: Value Iteration #################### 
 
-def value_iteration(mdp, gamma, theta = 1e-3):
+def value_iteration(mdp, gamma, theta = 1e-6):
     V = np.zeros((len(mdp.states()))) 
     error = []
     while True:

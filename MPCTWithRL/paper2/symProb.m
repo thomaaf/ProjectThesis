@@ -1,7 +1,7 @@
-function nlpProb = symProb(Model,MPC,RL,Init)
+function [nlpProb,RL] = symProb(Model,MPC,RL,Init)
 	nx = Model.nx; nu = Model.nu; N = MPC.N; n = MPC.n;
 	syms X [nx,N+1] real;
-	syms S [nx,N+1] 	real;
+	syms S [nx,N] 	real;
 	syms U [nu,N]	real;
 	syms P [n,1]	real;
 
@@ -25,26 +25,28 @@ function nlpProb = symProb(Model,MPC,RL,Init)
 	
 	g1 =  U - 1;
 	g2 = -U - 1;
-	g3 = S
-	h1 =  [ 0;-1] + xsub - X(:,1:N+1) - S(:,1:N+1);
-	h2 = -[ 1; 1] - xtop + X(:,1:N+1) - S(:,1:N+1);
+	g3 = S;
+	h1 =  [ 0;-1] + xsub - X(:,1:N) - S(:,1:N);
+	h2 = -[ 1; 1] - xtop + X(:,1:N) - S(:,1:N);
 
-	obj1 = V0 + gamma^N/2*X(:,N+1)'*Plqr*X(:,N+1) + W'*S(:,N+1)*1;
+	obj1 = V0 + gamma^N/2*X(:,N+1)'*Plqr*X(:,N+1) ;
 	obj2 = F'*[X(:,1:N);U(:,1:N)];
 	obj3 = 0.5*gamma.^(0:N-1).*(sum(X(:,1:N).^2) + 0.5*U(:,1:N).^2 + W'*S(:,1:N));
 
 	g = [eq0;eq1(:);g1(:);g2(:);h1(:);h2(:);g3(:)];
 	obj = sum(obj1) + sum(obj2) + sum(obj3);  
 
-	children(obj)'
-	syms chi 	[N*(2*nu + 4*nx) + 4*nx,1]		real;
+	h = [h1(:,1) + S(:,1) - xsub;h2(:,1) + S(:,1) + xtop];
+
+	syms chi 	[size(g,1) ,1]		real;
 
 	OPTVariables = [X(:);S(:);U(:)];
 	vars = [OPTVariables;chi;P];
 	f = matlabFunction(obj,'Vars',{vars});
 %--------------------------------------------------------------------
 
-
+	size(g)
+	size(chi)
 	L = obj + chi'*g;
 	
     for i = 1:size(OPTVariables,1)
@@ -54,9 +56,11 @@ function nlpProb = symProb(Model,MPC,RL,Init)
     for i = 1:size(RL.theta,1)
         dLdtheta(i) = diff(L,theta(i),1);
     end
+    Dtheta = dLdtheta;
     dLdx = matlabFunction(dLdx,'Vars',{vars});
     dLdtheta = matlabFunction(dLdtheta,'Vars',{vars});
-
-	nlpProb = struct('f',f,'x',OPTVariables, 'g',g,'p',P,'dLdx',dLdx,'dLdtheta',dLdtheta,'vars',vars);	
-
+    h = matlabFunction(h,'Vars',{vars});
+	nlpProb = struct('f',f,'x',OPTVariables, 'g',g,'p',P,'dLdx',dLdx,'dLdtheta',dLdtheta,'vars',vars,'Dtheta',Dtheta);	
+	RL.h = h;
+	RL.W = repmat(Model.W,2,1);
 end

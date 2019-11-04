@@ -6,35 +6,39 @@ function [nlpProb,args,opts ] = casadiProb(Model,MPC,RL,Init)
 	P = casadi.SX.sym('P',n,1);
 
 %Extracting parameters
-	Plqr = reshape(P(1:nx*nx),nx,nx)										;%1:4
-	V0   = reshape(P(nx*nx+1:nx*nx+1),1,1)									;%5
-	xsub = reshape(P(nx*nx+2       		  :nx*nx+1 + nx),nx,1)  			;%6:7
-	xtop = reshape(P(nx*nx+2 +   nx		  :nx*nx+1 + 2*nx),nx,1)			;%7:8
-	b    = reshape(P(nx*nx+2 + 2*nx		  :nx*nx+1 + 3*nx),nx,1)			;%9:10
-	B    = reshape(P(nx*nx+2 + 3*nx 	  :nx*nx+1 + 4*nx),nx,1)     		;%12:13
-	F    = reshape(P(nx*nx+2 + 4*nx 	  :nx*nx+1 + 5*nx + nu),nx+nu,1) 	;%14:16
-	A 	 = reshape(P(nx*nx+2 + 5*nx + nu  :nx*nx*2+1 + 5*nx + nu),nx,nx) 	;%17:20
-	X0 	 = reshape(P(nx*nx*2+2 + 5*nx + nu:nx*nx*2+1 + 6*nx + nu),nx,1)		; 
-	Pshape = [Plqr(:);V0;xsub;xtop;b;B;F;A(:);X0];
+	%teta = [c;xsub;xtop;f;e;t];
+	C 	= 	P(1);
+	Xsub= 	P(2);
+	Xtop= 	P(3);
+	F 	= 	P(4:5);
+	E 	= 	P(6);
+	T 	= 	P(7);
+	X0 	= 	P(8);
 
 %Creating constraints and objective
 	gamma = RL.gamma; W = Model.W;
-	Xlb = MPC.Xlb; Xub = MPC.Xub;	
+	%Xlb = MPC.Xlb; Xub = MPC.Xub;	
+	
 	eq0 = X(:,1) - X0;
-	eq1 =   (A*X(:,1:N)+ B*U(:,1:N) + b) - X(:,2:N+1);
+	eq1 = (Model.A*X(:,1:N)+ Model.B*U(:,1:N) + E) - X(:,2:N+1);
 	
 	g1 =  U - 1;
 	g2 = -U - 1;
 
-	h1 =  [ 0;-1] + xsub - X(:,1:N) - S(:,1:N);
-	h2 = -[ 1; 1] - xtop + X(:,1:N) - S(:,1:N);
+	h1 =  Xsub - X(:,1:N) - S(:,1:N);
+	h2 = -1 - Xtop + X(:,1:N) - S(:,1:N);
+	h3 = -S(:,1:N)
 
-	obj1 = V0 + gamma^N/2*X(:,N+1)'*Plqr*X(:,N+1);
-	obj2 = F'*[X(:,1:N);U(:,1:N)];
-	obj3 = 0.5*gamma.^(0:N-1).*(sum(X(:,1:N).^2) + 0.5*U(:,1:N).^2 + W'*S(:,1:N));
+	obj1 = C + gamma^N*T*X(:,N+1)^2;
+	obj3 = gamma.^(0:N-1).*(sum(X(:,1:N).^2) + U(:,1:N).^2 + W'*S(:,1:N) + W'*S(:,1:N).^2 + F'*[X(:,1:N);U(:,1:N)]);
+	
 
-	g = [eq0;eq1(:);g1(:);g2(:);h1(:);h2(:)];
-	obj = sum(obj1) + sum(obj2) + sum(obj3);  
+	eq = [eq0(:);eq1(:)];
+	g  = [g1(:);g2(:)];
+	h  = [h1(:);h2(:);h3(:)];
+	
+	constraints = [eq;g;h];
+	obj = sum(obj1)  + sum(obj3);  
 
 	OPTVariables = [X(:);S(:);U(:)];
 	nlpProb = struct('f',obj,'x',OPTVariables, 'g',g,'p',P);	
@@ -51,6 +55,7 @@ function [nlpProb,args,opts ] = casadiProb(Model,MPC,RL,Init)
 	lbU = -inf(nu*(N),1); 	ubU = inf(nu*(N),1);  
 	args.lbx = [lbX;lbS;lbU];
 	args.ubx = [ubX;ubS;ubU];
+
 
 
 	opts = struct;

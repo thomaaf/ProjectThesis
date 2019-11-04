@@ -1,4 +1,4 @@
-clear
+
 n = 3; m = 3;
 Grid = -ones(n,m);
 
@@ -10,7 +10,7 @@ Q(1:n,1:m) = struct('a',a);
 
 rate = 1;
 piece = struct('stateX',1,'nextStateX',nan,'stateY',1,'nextStateY',nan,'action',0);
-maxAttempts = 4000;
+maxAttempts = 1000;
 attempts = 1;
 attemptData = struct('nSteps',zeros(maxAttempts,1),'stageCost',zeros(maxAttempts,1),'stageCostFiltered',zeros(maxAttempts,1));
 stepCounter = 1;
@@ -23,12 +23,12 @@ while attempts <maxAttempts
     action = rand;
     explore = rand;
 
-    if explore >.5
+    if explore >1
         [piece,action] = ranmove(piece,action,m,n);
         rate = 1;
     else
         [piece,action] = move(piece,optPolicy(Q,[piece.stateX;piece.stateY]),m,n);
-        rate = 0;
+        rate = 1;
     end
     if [piece.stateX ; piece.stateY] == [3;3]
        aset = [aset; attempts];
@@ -64,7 +64,7 @@ figure(1)
 subplot(2,1,1);
 plot(attemptData.stageCost);
 subplot(2,1,2)
-plot(attemptData.stageCostFiltered)
+plot(attemptData.nSteps)
 
 function action = optPolicy(Q,s)
     best = -inf;
